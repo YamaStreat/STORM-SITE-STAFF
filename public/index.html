@@ -1,6 +1,142 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>STØRM PVP</title><link rel="stylesheet" href="/styles.css"></head><body>
-<div class="shell"><nav class="nav"><div class="brand">ST<span>Ø</span>RM // PVP</div><div class="nav-actions"><a class="btn" id="discordTop" href="#">Discord</a><a class="btn primary" href="/auth/discord">Panel staff</a></div></nav>
-<section class="hero"><div><h1>ST<span>Ø</span>RM<br>PVP</h1><div class="tag">Domine. Combats. Gagne.</div><button id="serverStatus" class="status"><span class="dot"></span><span>Chargement…</span></button><div class="hero-buttons"><a id="discordMain" href="#" class="btn primary">Rejoindre le Discord</a><a href="#news" class="btn">Voir les annonces</a></div></div></section>
-<section id="news" class="section"><div class="section-title"><div><h2>Actualités</h2><p>Les dernières annonces STØRM.</p></div></div><div id="announcements" class="grid"><div class="card muted">Aucune annonce pour le moment.</div></div></section></div>
-<div class="modal-backdrop" id="devModal"><div class="modal"><h2>🛠️ Serveur en cours de développement</h2><p class="muted">STØRM PVP est actuellement en préparation. Le serveur n'est pas encore ouvert au public.</p><p>Rejoins le Discord pour suivre les annonces, les tests et l'ouverture.</p><div class="hero-buttons"><a id="discordModal" class="btn primary" href="#">Rejoindre le Discord</a><button class="btn" id="closeModal">Fermer</button></div></div></div>
-<script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#05070b">
+  <meta name="description" content="STØRM PVP — serveur FiveM PVP compétitif. Actualités, support et communauté Discord.">
+  <title>STØRM PVP — FiveM PVP</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="public-page">
+  <div class="noise" aria-hidden="true"></div>
+  <header class="public-header">
+    <div class="site-shell nav-shell">
+      <a class="brand brand-link" href="#home" aria-label="STORM PVP accueil">
+        <span class="brand-mark">S</span>
+        <span>ST<span>Ø</span>RM</span>
+        <small>PVP</small>
+      </a>
+      <nav class="desktop-nav" aria-label="Navigation principale">
+        <a href="#home">Accueil</a>
+        <a href="#news">Actualités</a>
+        <a href="#community">Communauté</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-ghost" id="discordTop" href="#">Discord</a>
+        <a class="btn btn-primary" href="/auth/discord">Panel staff</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-v2" id="home">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-orb hero-orb-a" aria-hidden="true"></div>
+      <div class="hero-orb hero-orb-b" aria-hidden="true"></div>
+      <div class="site-shell hero-content">
+        <div class="hero-copy">
+          <div class="eyebrow"><span></span> FIVEM • PLAYER VS PLAYER</div>
+          <h1>ENTRE DANS<br><em>LA TEMPÊTE.</em></h1>
+          <p class="hero-lead">STØRM PVP construit une expérience FiveM orientée combat, compétition et communauté. Le serveur est actuellement en préparation.</p>
+          <div class="hero-actions">
+            <button id="serverStatus" class="server-pill" type="button">
+              <span class="status-light"></span>
+              <span class="status-copy"><small>STATUT DU SERVEUR</small><strong>Chargement…</strong></span>
+              <span class="status-arrow">↗</span>
+            </button>
+          </div>
+          <div class="hero-buttons">
+            <a id="discordMain" href="#" class="btn btn-primary btn-lg">Rejoindre le Discord</a>
+            <a href="#news" class="btn btn-outline btn-lg">Voir les actualités</a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="storm-ring ring-one"></div>
+          <div class="storm-ring ring-two"></div>
+          <div class="storm-ring ring-three"></div>
+          <div class="storm-core">
+            <span class="core-s">S</span>
+            <span class="core-label">STØRM<br>PVP</span>
+          </div>
+          <div class="visual-tag tag-a">PVP</div>
+          <div class="visual-tag tag-b">FIVEM</div>
+          <div class="visual-tag tag-c">STØRM</div>
+        </div>
+      </div>
+      <div class="hero-bottom site-shell">
+        <span>01 / COMBAT</span><span>02 / COMPÉTITION</span><span>03 / COMMUNAUTÉ</span>
+      </div>
+    </section>
+
+    <section class="feature-strip" id="community">
+      <div class="site-shell feature-grid">
+        <article class="feature-card">
+          <div class="feature-number">01</div>
+          <div><h3>PVP COMPÉTITIF</h3><p>Une expérience pensée autour du combat et de la progression.</p></div>
+        </article>
+        <article class="feature-card">
+          <div class="feature-number">02</div>
+          <div><h3>SUPPORT RAPIDE</h3><p>Tickets en DM Discord avec suivi direct par l'équipe STØRM.</p></div>
+        </article>
+        <article class="feature-card">
+          <div class="feature-number">03</div>
+          <div><h3>COMMUNAUTÉ</h3><p>Annonces, giveaways et streams centralisés sur Discord.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="news-section" id="news">
+      <div class="site-shell">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">STØRM FEED</span>
+            <h2>DERNIÈRES <em>ACTUALITÉS</em></h2>
+          </div>
+          <p>Les annonces publiées depuis le panel staff apparaissent automatiquement ici.</p>
+        </div>
+        <div id="announcements" class="news-grid">
+          <article class="news-card news-placeholder"><div class="news-index">—</div><div><span class="news-date">CHARGEMENT</span><h3>Récupération des annonces...</h3></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="discord-cta">
+      <div class="site-shell cta-box">
+        <div>
+          <span class="section-kicker">REJOINS LA COMMUNAUTÉ</span>
+          <h2>PRÊT POUR <em>STØRM ?</em></h2>
+          <p>Rejoins le Discord pour suivre le développement, les annonces, les recrutements et l'ouverture du serveur.</p>
+        </div>
+        <a id="discordBottom" class="btn btn-primary btn-lg" href="#">Rejoindre Discord <span>↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="public-footer">
+    <div class="site-shell footer-row">
+      <div class="brand"><span class="brand-mark small-mark">S</span><span>ST<span>Ø</span>RM // PVP</span></div>
+      <p>Projet FiveM PVP • Tous droits réservés.</p>
+      <a href="/auth/discord">Staff</a>
+    </div>
+  </footer>
+
+  <div class="modal-backdrop" id="devModal" role="dialog" aria-modal="true" aria-labelledby="devTitle">
+    <div class="modal dev-modal">
+      <button class="modal-x" id="closeModal" type="button" aria-label="Fermer">×</button>
+      <div class="dev-icon">⚡</div>
+      <span class="section-kicker">STATUT STØRM PVP</span>
+      <h2 id="devTitle">EN COURS DE <em>DÉVELOPPEMENT</em></h2>
+      <p>Le serveur FiveM n'est pas encore ouvert au public. L'équipe travaille actuellement sur le gameplay, les systèmes PVP et les finitions.</p>
+      <div class="dev-progress"><span></span></div>
+      <small>Les informations d'ouverture seront publiées sur Discord.</small>
+      <div class="modal-actions">
+        <a id="discordModal" class="btn btn-primary" href="#">Suivre le développement</a>
+        <button class="btn btn-ghost" id="closeModalSecondary" type="button">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
