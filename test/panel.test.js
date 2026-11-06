@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
-const { installPanel, permissionsFor, nextVersion, patchContent, PERMISSIONS, CHANNELS } = require('../src/panel');
+const { installPanel, permissionsFor, nextVersion, patchContent, PERMISSIONS, CHANNELS, NOTIFY_ROLES } = require('../src/panel');
 const { ChannelType } = require('discord.js');
 const ID = { guild: '111111111111111111', owner: '222222222222222222', staff: '333333333333333333', role: '444444444444444444', target: '555555555555555555', bot: '666666666666666666' };
 
@@ -57,14 +57,15 @@ test('HTTP access requires login, verifies live roles and rejects foreign origin
 test('existing ticket endpoints also enforce granular permissions', async () => withServer(async (f, request) => {
   f.config.panelRoles[ID.role] = ['warn'];
   assert.equal((await request('dossiers')).status, 403);
-  assert.equal((await request('access', {panelRoles:{}})).status, 403);
+  assert.equal((await request('access', {roleUpdates:{}})).status, 403);
 }));
 test('patch publishing validates, routes, serializes version and disables mentions', async () => withServer(async (f, request) => {
   assert.equal((await request('patch-notes', {expectedVersion:'v1.0.0',sections:{}})).status, 400);
   assert.equal((await request('patch-notes', {expectedVersion:'v1.0.0',sections:{fixes:'x'.repeat(2100)}})).status, 400);
   const result = await request('patch-notes', {expectedVersion:'v1.0.0',sections:{additions:'Une nouveauté\n\nAutre ajout',fixes:'Un bug'}});
   assert.equal(result.status, 200); assert.equal(result.body.nextVersion, 'v1.0.1');
-  assert.equal(f.calls[0][1], CHANNELS.patchNotes); assert.deepEqual(f.calls[0][2].allowedMentions, {parse:[]});
+  assert.equal(f.calls[0][1], CHANNELS.patchNotes); assert.deepEqual(f.calls[0][2].allowedMentions, {parse:[],roles:[NOTIFY_ROLES.patchNotes]});
+  assert.ok(f.calls[0][2].content.startsWith(`<@&${NOTIFY_ROLES.patchNotes}>\n\n# :clipboard:`));
   assert.deepEqual(f.state.patchNotes[0].sections.additions, ['Une nouveauté','Autre ajout']);
   assert.equal((await request('patch-notes', {expectedVersion:'v1.0.0',sections:{fixes:'Stale'}})).status, 409);
   assert.equal(f.calls.length, 1);
@@ -99,11 +100,11 @@ test('moderation executes all actions and persists successful audit entries', as
   assert.equal(f.state.moderation.length, 6);
 }));
 test('access configuration validates role IDs and supports immediate revocation', async () => withServer(async (f, request) => {
-  assert.equal((await request('access', {panelRoles:{[ID.role]:['invented']}})).status, 400);
-  assert.equal((await request('access', {panelRoles:{[ID.guild]:['access']}})).status, 400);
-  assert.equal((await request('access', {panelRoles:{[ID.role]:['tickets']}})).status, 200);
+  assert.equal((await request('access', {roleUpdates:{[ID.role]:['invented']}})).status, 400);
+  assert.equal((await request('access', {roleUpdates:{[ID.guild]:['access']}})).status, 400);
+  assert.equal((await request('access', {roleUpdates:{[ID.role]:['tickets']}})).status, 200);
   assert.equal((await request('access')).status, 403);
-  assert.equal((await request('access', {panelRoles:{}}, ID.owner)).status, 200);
+  assert.equal((await request('access', {roleUpdates:{[ID.role]:null}}, ID.owner)).status, 200);
   assert.equal((await request('panel')).status, 403);
 }));
 test('saving server status also synchronizes Discord and rejects malformed values', async () => withServer(async (f, request) => {
@@ -135,4 +136,28 @@ test('concurrent patch submissions cannot publish the same version twice', async
   assert.equal(second.status, 409);
   assert.equal((await first).status, 200);
   assert.equal(f.state.patchNotes.length, 1);
+}));
+test('editing one role preserves permissions on every other role, including stale browser saves', async () => withServer(async (f, request) => {
+  const secondId = '777777777777777777';
+  const roles = await f.guild.roles.fetch();
+  roles.set(secondId, {id:secondId,name:'Second staff',position:8,managed:false});
+  f.guild.roles.fetch = async () => roles;
+  f.config.panelRoles[secondId] = ['tickets','ban','warn'];
+  assert.equal((await request('access', {roleUpdates:{[secondId]:['tickets','warn']}})).status, 200);
+  assert.deepEqual(f.config.panelRoles[ID.role], Object.keys(PERMISSIONS));
+  assert.deepEqual(f.config.panelRoles[secondId], ['tickets','warn']);
+  // A second browser edits another role; its request contains no stale copy of the first role.
+  assert.equal((await request('access', {roleUpdates:{[ID.role]:['access','ban']}})).status, 200);
+  assert.deepEqual(f.config.panelRoles[secondId], ['tickets','warn']);
+  assert.equal((await request('access', {roleUpdates:{[secondId]:[]}})).status, 200);
+  assert.deepEqual(f.config.panelRoles[ID.role], ['access','ban']);
+  assert.deepEqual(f.config.panelRoles[secondId], []);
+  assert.equal((await request('access', {roleUpdates:{[secondId]:null}})).status, 200);
+  assert.ok(!Object.hasOwn(f.config.panelRoles,secondId));
+  assert.deepEqual(f.config.panelRoles[ID.role], ['access','ban']);
+}));
+test('outdated clients cannot replace the entire role matrix', async () => withServer(async (f, request) => {
+  const before = structuredClone(f.config.panelRoles);
+  assert.equal((await request('access', {panelRoles:{}})).status, 409);
+  assert.deepEqual(f.config.panelRoles, before);
 }));

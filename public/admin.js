@@ -7,6 +7,7 @@ let lastSelectedId = null;
 let permissions = [];
 let panelInfo = {};
 let accessData = null;
+let roleUpdates = {};
 const actionLabels = { ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire', untimeout: 'Retirer le mute', warn: 'Avertir' };
 const tabPermissions = { tickets: 'tickets', annonces: 'announcements', giveaways: 'giveaways', streams: 'streams', settings: 'settings', patchNotes: 'patchNotes', access: 'access' };
 const can = p => permissions.includes(p);
@@ -291,7 +292,7 @@ function updatePatchPreview() {
     const lines = value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
     return lines.length ? `### ${patchTitles[key]}\n${lines.map(x => `> ➜ ${x}`).join('\n')}` : '';
   }).filter(Boolean);
-  const content = `# :clipboard:・PATCH NOTE — STØRM PVP\n\n:date: **Date :** \`${date}\`  \n:label: **Version :** \`${panelInfo.nextVersion || 'v1.0.0'}\`\n\n${blocks.join('\n\n')}\n\n**STØRM PVP ・ Development Team**`;
+  const content = `<@&1568307263695749201>\n\n# :clipboard:・PATCH NOTE — STØRM PVP\n\n:date: **Date :** \`${date}\`  \n:label: **Version :** \`${panelInfo.nextVersion || 'v1.0.0'}\`\n\n${blocks.join('\n\n')}\n\n**STØRM PVP ・ Development Team**`;
   $('#patchPreview').textContent = content;
   $('#patchLength').textContent = `${content.length} / 2 000 caractères · version +0.0.1 à chaque publication`;
 }
@@ -317,7 +318,10 @@ $('#publishDevelopment').onclick = async () => {
   try { await api('/api/admin/development-message', { method: 'POST', body: '{}' }); notice('Message de statut Discord actualisé.'); }
   catch (e) { notice(e.message, true); } finally { button.disabled = false; }
 };
-async function loadAccess() { accessData = await api('/api/admin/access'); renderAccess(); }
+async function loadAccess() {
+  if (accessData && Object.keys(roleUpdates).length) { renderAccess(); return; }
+  accessData = await api('/api/admin/access'); roleUpdates = {}; renderAccess();
+}
 function renderAccess() {
   $('#accessRole').innerHTML = accessData.roles.filter(role => !Object.hasOwn(accessData.panelRoles, role.id)).map(role => `<option value="${role.id}">${esc(role.name)}</option>`).join('');
   $('#accessMatrix').innerHTML = Object.entries(accessData.panelRoles).map(([id, selected]) => {
@@ -326,15 +330,18 @@ function renderAccess() {
   }).join('') || '<p class="muted">Aucun rôle autorisé. Seul le propriétaire a accès au panel.</p>';
   $$('[data-permission]').forEach(input => input.onchange = () => {
     const selected = accessData.panelRoles[input.dataset.role];
-    accessData.panelRoles[input.dataset.role] = input.checked ? [...new Set([...selected, input.dataset.permission])] : selected.filter(x => x !== input.dataset.permission);
+    const updated = input.checked ? [...new Set([...selected, input.dataset.permission])] : selected.filter(x => x !== input.dataset.permission);
+    accessData.panelRoles[input.dataset.role] = updated;
+    roleUpdates[input.dataset.role] = [...updated];
   });
-  $$('[data-remove-role]').forEach(button => button.onclick = () => { delete accessData.panelRoles[button.dataset.removeRole]; renderAccess(); });
+  $$('[data-remove-role]').forEach(button => button.onclick = () => { delete accessData.panelRoles[button.dataset.removeRole]; roleUpdates[button.dataset.removeRole] = null; renderAccess(); });
 }
-$('#addAccessRole').onclick = () => { const id = $('#accessRole').value; if (id) { accessData.panelRoles[id] = []; renderAccess(); } };
+$('#addAccessRole').onclick = () => { const id = $('#accessRole').value; if (id) { accessData.panelRoles[id] = []; roleUpdates[id] = []; renderAccess(); } };
 $('#saveAccess').onclick = async () => {
-  if (!accessData || !confirm('Enregistrer ces accès ? Les nouveaux droits s’appliqueront immédiatement.')) return;
+  if (!accessData || !Object.keys(roleUpdates).length) return notice('Aucune modification à enregistrer.');
+  if (!confirm('Enregistrer les permissions des rôles modifiés uniquement ?')) return;
   const button = $('#saveAccess'); button.disabled = true;
-  try { await api('/api/admin/access', { method: 'POST', body: JSON.stringify({ panelRoles: accessData.panelRoles }) }); notice('Permissions enregistrées.'); await refreshPanel(); }
+  try { await api('/api/admin/access', { method: 'POST', body: JSON.stringify({ roleUpdates }) }); roleUpdates = {}; accessData = null; notice('Permissions des rôles modifiés enregistrées.'); await refreshPanel(); if (can('access')) await loadAccess(); }
   catch (e) { notice(e.message, true); } finally { button.disabled = false; }
 };
 

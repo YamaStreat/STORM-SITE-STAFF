@@ -129,7 +129,7 @@
         <div class="panel-head"><div><span class="section-kicker">COMMUNITY REWARDS</span><h2>Giveaways</h2><p>Crée un concours Discord et gère les rerolls depuis le site.</p></div></div>
         <div class="admin-card">
           <div class="form-grid-v2">
-            <div class="field"><label>Salon Discord</label><div class="destination-pill"># Giveaways <small>1568295438610858024 · destination automatique</small></div></div>
+            <div class="field"><label>Salon Discord</label><div class="destination-pill"># Giveaways <small>1568295438610858024 · mention du rôle 1568307516197179534</small></div></div>
             <div class="field"><label>Lot à gagner</label><input class="input" id="givePrize" placeholder="VIP Gold • 1 mois"></div>
             <div class="field"><label>Durée</label><input class="input" id="giveDuration" placeholder="Ex. 30m, 2h, 1d"></div>
             <div class="field"><label>Nombre de gagnants</label><input class="input" id="giveWinners" type="number" min="1" max="10" value="1"></div>
@@ -180,7 +180,7 @@
         <div class="panel-head"><div><span class="section-kicker">DEVELOPMENT TEAM</span><h2>Patch notes</h2><p>La date et la version sont automatiques. Une ligne = une entrée. Laisse les rubriques inutiles vides.</p></div><span class="version-tag" id="patchVersion">v1.0.0</span></div>
         <div class="editor-grid">
           <form id="patchForm" class="admin-card form-card">
-            <div class="destination-pill"># 𝙋𝙖𝙩𝙘𝙝-𝙉𝙤𝙩𝙚𝙨 <small>1564739753222475807</small></div>
+            <div class="destination-pill"># 𝙋𝙖𝙩𝙘𝙝-𝙉𝙤𝙩𝙚𝙨 <small>1564739753222475807 · mention du rôle 1568307263695749201</small></div>
             <div class="field"><label for="patchAdditions">🆕 Ajouts</label><textarea id="patchAdditions" class="textarea short" placeholder="Nouveau système / fonctionnalité
 Nouveau contenu ajouté"></textarea></div>
             <div class="field"><label for="patchChanges">🔄 Modifications</label><textarea id="patchChanges" class="textarea short" placeholder="Modification d’un système existant"></textarea></div>
@@ -195,7 +195,7 @@ Nouveau contenu ajouté"></textarea></div>
         <div class="panel-head"><div><span class="section-kicker">CONTRÔLE DES ACCÈS</span><h2>Rôles & permissions</h2><p>Les permissions des rôles s’additionnent. Le propriétaire du serveur conserve tous les droits.</p></div></div>
         <div class="admin-card form-card">
           <div class="action-row"><select class="select" id="accessRole" aria-label="Choisir un rôle Discord"></select><button class="btn btn-outline" id="addAccessRole">Ajouter un rôle</button></div>
-          <p class="muted">Coche les droits accordés à chaque rôle. Retirer un rôle coupe son accès au panel. Le droit « Configurer les accès staff » permet d’accorder tous les droits : réserve-le aux responsables.</p>
+          <p class="muted">Coche les droits accordés à chaque rôle. Seuls les rôles modifiés seront enregistrés ; les autres conservent leurs permissions. Retirer un rôle coupe son accès au panel. Le droit « Configurer les accès staff » permet d’accorder tous les droits : réserve-le aux responsables.</p>
           <div id="accessMatrix" class="access-matrix"></div>
           <button class="btn btn-primary" id="saveAccess">Enregistrer les permissions</button>
         </div>

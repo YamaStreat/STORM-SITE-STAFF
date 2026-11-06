@@ -1,6 +1,7 @@
 const { PermissionFlagsBits, ChannelType } = require('discord.js');
 
 const CHANNELS = Object.freeze({ announcements: '1564691828312375449', giveaways: '1568295438610858024', development: '1564691848222613644', patchNotes: '1564739753222475807' });
+const NOTIFY_ROLES = Object.freeze({ patchNotes: '1568307263695749201', giveaways: '1568307516197179534' });
 const PERMISSIONS = Object.freeze({
   tickets: 'Gérer les tickets et contestations', announcements: 'Publier des annonces', giveaways: 'Gérer les giveaways', streams: 'Publier des streams',
   patchNotes: 'Publier des patch notes', settings: 'Gérer le statut du serveur', access: 'Configurer les accès staff',
@@ -64,22 +65,30 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
   app.get('/api/admin/panel', requireStaff, route(async (req, res) => {
     res.json({ channels: CHANNELS, permissions: req.staff.permissions, permissionLabels: PERMISSIONS, nextVersion: nextVersion(state.patchNotes?.[0]?.version) });
   }));
+  const configuredRoles = () => {
+    const config = getConfig();
+    return config.panelRoles ?? (config.staffRoleId ? { [config.staffRoleId]: Object.keys(PERMISSIONS).filter(p => p !== 'access') } : {});
+  };
   app.get('/api/admin/access', requireStaff, route(async (req, res) => {
     const roles = await req.staff.guild.roles.fetch();
-    const config = getConfig();
-    const panelRoles = config.panelRoles ?? (config.staffRoleId ? { [config.staffRoleId]: Object.keys(PERMISSIONS).filter(p => p !== 'access') } : {});
+    const panelRoles = configuredRoles();
     res.json({ roles: [...roles.values()].filter(r => r.id !== guildId && !r.managed).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor })), panelRoles, permissionLabels: PERMISSIONS });
   }));
   app.post('/api/admin/access', requireStaff, route(async (req, res) => {
-    const entries = req.body.panelRoles;
+    if (Object.hasOwn(req.body, 'panelRoles')) fail(409, 'Recharge le panel avec Ctrl+F5 avant de modifier les permissions.');
+    const entries = req.body.roleUpdates;
     if (!entries || typeof entries !== 'object' || Array.isArray(entries) || Object.keys(entries).length > 100) fail(400, 'Configuration des rôles invalide.');
     const roles = await req.staff.guild.roles.fetch();
-    const clean = {};
+    // Merge only edited role IDs; a stale browser must never overwrite other roles.
+    const clean = Object.fromEntries(Object.entries(configuredRoles()).map(([id, permissions]) => [id, [...permissions]]));
     for (const [id, permissions] of Object.entries(entries)) {
+      if (!SNOWFLAKE.test(id) || id === guildId) fail(400, 'Rôle invalide.');
+      if (permissions === null) { delete clean[id]; continue; }
       const role = roles.get(id);
-      if (!SNOWFLAKE.test(id) || id === guildId || !role || role.managed || !Array.isArray(permissions) || permissions.some(p => !Object.hasOwn(PERMISSIONS, p))) fail(400, 'Rôle ou permission invalide.');
-      if (permissions.length) clean[id] = [...new Set(permissions)];
+      if (!role || role.managed || !Array.isArray(permissions) || permissions.some(p => !Object.hasOwn(PERMISSIONS, p))) fail(400, 'Rôle ou permission invalide.');
+      clean[id] = [...new Set(permissions)];
     }
+    if (Object.keys(clean).length > 100) fail(400, 'Maximum 100 rôles configurés.');
     getConfig().panelRoles = clean;
     saveConfig();
     res.json({ ok: true });
@@ -103,7 +112,9 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
       const content = patchContent(version, sections, now);
       if (content.length > 2000) fail(400, 'Le patch note dépasse 2 000 caractères. Raccourcis son contenu.');
       const channel = await destination(req.staff.guild, CHANNELS.patchNotes);
-      const message = await channel.send({ content, allowedMentions: { parse: [] } });
+      const notification = `<@&${NOTIFY_ROLES.patchNotes}>`;
+      if (content.length + notification.length + 2 > 2000) fail(400, 'Le patch note avec sa mention dépasse 2 000 caractères.');
+      const message = await channel.send({ content: `${notification}\n\n${content}`, allowedMentions: { parse: [], roles: [NOTIFY_ROLES.patchNotes] } });
       state.patchNotes ||= [];
       state.patchNotes.unshift({ id: message.id, version, sections, content, createdAt: now.getTime(), author: req.session.user.username });
       state.patchNotes = state.patchNotes.slice(0, 100); saveState();
@@ -175,4 +186,4 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
   }));
   return { requireStaff, resolveAccess };
 }
-module.exports = { installPanel, CHANNELS, PERMISSIONS, permissionsFor, nextVersion, patchContent };
+module.exports = { installPanel, CHANNELS, NOTIFY_ROLES, PERMISSIONS, permissionsFor, nextVersion, patchContent };

@@ -5,7 +5,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
-const { installPanel, CHANNELS } = require('./panel');
+const { installPanel, CHANNELS, NOTIFY_ROLES } = require('./panel');
 const {
   Client,
   GatewayIntentBits,
@@ -706,7 +706,7 @@ async function startGiveaway(interaction) {
   const endAt = Date.now() + duration;
 
   const embed = stormEmbed('🎁 STORM GIVEAWAY', `**Lot :** ${prize}\n**Gagnant(s) :** ${winners}\n**Fin :** <t:${Math.floor(endAt / 1000)}:R>\n\nRéagis avec 🎉 pour participer !`);
-  const msg = await channel.send({ embeds: [embed] });
+  const msg = await channel.send({ content: `<@&${NOTIFY_ROLES.giveaways}>`, embeds: [embed], allowedMentions: { parse: [], roles: [NOTIFY_ROLES.giveaways] } });
   await msg.react('🎉');
 
   state.giveaways[msg.id] = { channelId: channel.id, guildId: interaction.guildId, prize, winners, endAt, ended: false };
@@ -1145,7 +1145,7 @@ app.post('/api/admin/giveaways', requireStaff, asyncRoute(async (req, res) => {
   if (!ch?.isTextBased() || ch.guildId !== GUILD_ID) return res.status(404).json({ error: 'Salon introuvable.' });
   const endAt = Date.now() + duration;
   const embed = stormEmbed('🎁 STORM GIVEAWAY', `**Lot :** ${prize}\n**Gagnant(s) :** ${winners}\n**Fin :** <t:${Math.floor(endAt/1000)}:R>\n\nRéagis avec 🎉 pour participer !`);
-  const msg = await ch.send({ embeds: [embed] }); await msg.react('🎉');
+  const msg = await ch.send({ content: `<@&${NOTIFY_ROLES.giveaways}>`, embeds: [embed], allowedMentions: { parse: [], roles: [NOTIFY_ROLES.giveaways] } }); await msg.react('🎉');
   state.giveaways[msg.id] = { channelId, guildId: GUILD_ID, prize, winners, endAt, ended: false, createdBy: req.session.user.id }; saveState();
   res.json({ ok: true, id: msg.id });
 }));

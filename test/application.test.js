@@ -6,7 +6,7 @@ const path = require('node:path');
 const { createRequire } = require('node:module');
 const express = require('express');
 const discord = require('discord.js');
-const { CHANNELS } = require('../src/panel');
+const { CHANNELS, NOTIFY_ROLES } = require('../src/panel');
 
 test('complete application starts offline and serves public API, assets and fixed publication destinations', async () => {
   const filename = path.join(__dirname, '../src/index.js');
@@ -40,6 +40,11 @@ test('complete application starts offline and serves public API, assets and fixe
     for(const [route,body,expected] of [ ['announcements',{channelId:'attacker-destination',title:'Annonce',message:'Bonjour'},CHANNELS.announcements], ['giveaways',{channelId:'attacker-destination',prize:'VIP',duration:'1h',winners:1},CHANNELS.giveaways] ]) {
       const response = await fetch(base+'/api/admin/'+route,{method:'POST',headers:{'content-type':'application/json','x-test-owner':'yes'},body:JSON.stringify(body)});
       assert.equal(response.status,200,await response.text()); assert.equal(sent.at(-1).id,expected);
+      if (route === 'giveaways') {
+        assert.equal(sent.at(-1).payload.content, `<@&${NOTIFY_ROLES.giveaways}>`);
+        assert.deepEqual(Array.from(sent.at(-1).payload.allowedMentions.roles), [NOTIFY_ROLES.giveaways]);
+        assert.equal(sent.at(-1).payload.allowedMentions.parse.length, 0);
+      }
     }
   } finally { await new Promise(resolve=>server.close(resolve)); }
 });
