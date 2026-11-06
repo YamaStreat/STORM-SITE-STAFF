@@ -26,7 +26,7 @@ async function api(url, opt = {}) {
   const headers = { ...(opt.body ? {'Content-Type':'application/json'} : {}), ...(opt.headers || {}) };
   const r = await fetch(url, { ...opt, headers, cache:'no-store' });
   const d = await r.json().catch(() => ({}));
-  if (r.status === 401) { location.href = '/auth/discord'; throw new Error('auth'); }
+  if (r.status === 401) { location.href = '/staff'; throw new Error('auth'); }
   if (!r.ok) throw new Error(d.error || 'Erreur serveur');
   return d;
 }
@@ -48,7 +48,7 @@ $$('[data-jump]').forEach((b) => b.addEventListener('click', () => activateTab(b
 
 async function boot() {
   const me = await api('/api/me');
-  if (!me.user) { location.href = '/auth/discord'; return; }
+  if (!me.user) { location.href = '/staff'; return; }
   if (!me.user.isStaff) { notice('Ton compte ne dispose pas d’un rôle autorisé. Contacte le propriétaire du serveur.', true); return; }
   $('#username').textContent = me.user.username;
   $('#avatar').src = me.user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';

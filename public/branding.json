@@ -1,0 +1,10 @@
+{
+  "round": {
+    "local": "/assets/storm-round.png",
+    "remote": "https://cdn.discordapp.com/attachments/1521564668353708264/1565944280600682576/01261ecf-4760-43ac-9efc-8d415b9b47e6.png?ex=6aef5082&is=6aedff02&hm=6dc37f7b8d3f64ab7990d8e573e99fc1acb1c492f408810cad09ac8aad04704a&"
+  },
+  "wordmark": {
+    "local": "/assets/storm-wordmark.png",
+    "remote": "https://cdn.discordapp.com/attachments/1521564668353708264/1565944634134237225/edecf6da-21dc-4d99-b92e-be62a41d0d2d.png?ex=6aef50d6&is=6aedff56&hm=3836904a2dc4c9db5d1a23fdc5ab775eb6f81d2edc42ae99711c31eb54997758&"
+  }
+}

@@ -88,3 +88,11 @@ Les tests utilisent un client Discord simulé et des requêtes HTTP locales : au
 Dans Accès & rôles, sélectionner le rôle dans « Rôle à modifier ». Un seul rôle est affiché à la fois. Chaque rôle possède ses propres boutons « Enregistrer ce rôle » et « Retirer ce rôle ». Ces boutons envoient une requête dédiée à son identifiant ; les requêtes groupées sont refusées. Les cases des autres rôles ne sont pas modifiées. Le retrait concerne uniquement l’accès au panel, pas la suppression du rôle sur Discord.
 
 Après déploiement, le texte « ACCES V3 » doit être visible sous l’éditeur. Les fichiers admin ne sont plus mis en cache par l’application et le script possède une URL versionnée.
+
+## Page de connexion staff
+
+Le lien « Panel staff » ouvre `/staff` : page dédiée avec fond bleu nuit, carte de connexion centrale, logos STØRM et bouton Discord. Les visiteurs non connectés arrivant directement sur le panel sont renvoyés sur cette page. La vérification des rôles côté serveur reste obligatoire ; la page ne donne aucun droit supplémentaire. Un compte déjà autorisé peut accéder au panel depuis le même bouton.
+
+Les liens des deux logos fournis sont dans `public/branding.json`. Au démarrage, l’application tente de télécharger et vérifier les PNG pour les conserver dans `public/assets/storm-round.png` et `public/assets/storm-wordmark.png`. Une copie existante est réutilisée. Une erreur de téléchargement ne bloque pas le bot ou le site. Le navigateur utilise les images locales en priorité, puis les liens Discord. Les liens Discord étant temporaires, conserver les copies locales ; il est aussi possible de déposer manuellement les PNG originaux à ces deux chemins.
+
+Pour déployer cette page, transférer les dossiers `src/` et `public/` complets, notamment `src/branding.js`, `public/branding.json` et les fichiers `public/staff.*`. Redémarrer ensuite l’application. Les logos réels doivent être contrôlés sur Gamost ; le CDN Discord est refusé par le réseau de l’environnement de développement.

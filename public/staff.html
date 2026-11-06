@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#020b22">
+  <meta name="robots" content="noindex,nofollow">
+  <title>STØRM PVP — Espace staff</title>
+  <link rel="stylesheet" href="/staff.css?v=1">
+  <script src="/staff.js?v=1" defer></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="discord" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M19.7 5.1a18 18 0 0 0-4.4-1.4l-.6 1.2a16 16 0 0 0-5.4 0l-.6-1.2a18 18 0 0 0-4.4 1.4C1.5 9.2.7 13.2 1.1 17.1a18 18 0 0 0 5.4 2.7l1.1-1.8-1.7-.8.4-.3a12.7 12.7 0 0 0 11.4 0l.4.3-1.7.8 1.1 1.8a18 18 0 0 0 5.4-2.7c.5-4.5-.8-8.5-3.2-12ZM8.5 14.7c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></symbol>
+  </defs></svg>
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="staff-header">
+    <a class="staff-brand" href="/" aria-label="STØRM PVP — Retour au site">
+      <img data-logo="wordmark" alt="STØRM" width="112" height="52" hidden>
+      <span data-logo-fallback="wordmark" class="brand-type">ST<span>Ø</span>RM</span>
+      <span class="brand-caption"><b>STØRM PVP</b><small>L’ESPACE STAFF</small></span>
+    </a>
+    <span class="private-badge"><svg><use href="#shield"/></svg> Accès privé</span>
+  </header>
+  <main class="staff-main">
+    <div class="orbits" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <section class="login-card" aria-labelledby="welcomeTitle">
+      <div class="crest-wrap"><div class="crest"><img data-logo="round" alt="Logo STØRM PVP" width="120" height="120" hidden><span data-logo-fallback="round" class="crest-fallback">S</span></div><span class="staff-tag"><svg><use href="#shield"/></svg> STAFF</span></div>
+      <p class="eyebrow">PANEL STØRM PVP</p>
+      <h1 id="welcomeTitle">Bienvenue<br>dans les coulisses.</h1>
+      <a id="staffLogin" class="discord-login" href="/auth/discord"><svg class="discord-icon"><use href="#discord"/></svg><span id="loginLabel">Se connecter avec Discord</span><span class="login-arrow" aria-hidden="true">↗</span></a>
+      <p id="loginStatus" class="login-status" role="status" aria-live="polite" hidden></p>
+      <a id="switchAccount" class="switch-account" href="/auth/discord" hidden>Utiliser un autre compte</a>
+      <div class="access-note"><svg><use href="#shield"/></svg><p>Un espace réservé à l’équipe.<br><span>Votre accès est vérifié avec vos rôles Discord.</span></p></div>
+      <footer class="card-footer"><span></span> STØRM PVP · STAFF CENTER</footer>
+    </section>
+  </main>
+  <footer class="page-footer"><a href="/">STØRM PVP</a><span>/</span><span>PANEL STAFF</span></footer>
+</body>
+</html>

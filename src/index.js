@@ -6,6 +6,7 @@ const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 const { installPanel, CHANNELS, NOTIFY_ROLES } = require('./panel');
+const { cacheBrandAssets } = require('./branding');
 const {
   Client,
   GatewayIntentBits,
@@ -945,9 +946,10 @@ app.use(session({
   cookie: { httpOnly: true, sameSite: 'lax', secure: PUBLIC_URL.startsWith('https://'), maxAge: 1000 * 60 * 60 * 12 }
 }));
 app.use((req, res, next) => {
-  if (['/admin.html', '/admin.js'].includes(req.path)) res.set('Cache-Control', 'no-store');
+  if (['/admin.html', '/admin.js', '/staff', '/staff.html', '/staff.js', '/staff.css'].includes(req.path)) res.set('Cache-Control', 'no-store');
   next();
 });
+app.get('/staff', (req, res) => res.sendFile(path.join(ROOT, 'public', 'staff.html')));
 app.use(express.static(path.join(ROOT, 'public')));
 
 function oauthReady() { return Boolean(DISCORD_CLIENT_SECRET && PUBLIC_URL); }
@@ -1001,7 +1003,7 @@ app.get('/auth/discord/callback', asyncRoute(async (req, res) => {
       isStaff
     };
     delete req.session.oauthState;
-    res.redirect(isStaff ? '/admin.html' : '/?denied=1');
+    res.redirect(isStaff ? '/admin.html' : '/staff?denied=1');
   } catch (err) {
     console.error('[STORM WEB] OAuth:', err);
     res.status(500).send('Erreur pendant la connexion Discord. Vérifie PUBLIC_URL et le Redirect URI dans le Developer Portal.');
@@ -1175,7 +1177,10 @@ app.use('/api', (err, req, res, next) => {
 
 app.get('/health', (req, res) => res.json({ ok: true, botReady: client.isReady(), time: Date.now() }));
 
-app.listen(PORT, '0.0.0.0', () => console.log(`[STORM WEB] Site lancé sur le port ${PORT} • ${PUBLIC_URL}`));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[STORM WEB] Site lancé sur le port ${PORT} • ${PUBLIC_URL}`);
+  cacheBrandAssets().catch(err => console.warn('[STORM LOGOS] Copie locale indisponible :', err.message));
+});
 
 
 client.login(TOKEN);
