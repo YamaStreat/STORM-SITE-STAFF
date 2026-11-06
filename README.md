@@ -142,3 +142,34 @@ Le propriétaire attribue les nouveaux droits dans **Accès & rôles** : pages p
 Transférer les dossiers `src/` et `public/` complets, puis redémarrer et recharger le navigateur. Aucune nouvelle dépendance n’est nécessaire. Garder `.env`, `data/` et les logos locaux. Les nouvelles données sont ajoutées à `data/state.json` sans supprimer les tickets, annonces ou sanctions existants. Sauvegarder ce dossier régulièrement, notamment avant une mise à jour.
 
 Les candidatures, contenus éditoriaux et brouillons ne sont pas purgés automatiquement ; les limites sont respectivement 2 000 candidatures et 1 000 brouillons, avec refus d’un nouvel enregistrement au-delà plutôt que suppression silencieuse. Ces limites conviennent à un petit serveur ; prévoir un stockage dédié et une politique d’archivage pour un usage plus important.
+
+## Règlement FiveM / Discord et recrutements par poste
+
+Le règlement STØRM comporte 18 sections : respect, sécurité et vie privée sur Discord ; salons, publicité et vocaux ; combat PVP, triche, bugs, zones protégées, véhicules, déconnexions et événements sur FiveM ; preuves, sanctions, contestations et neutralité du staff. Il est organisé en quatre rubriques sur `/reglement`. Le modèle générique initial est remplacé automatiquement s’il n’a pas été personnalisé. Les règles déjà personnalisées sont conservées ; dans **Pages publiques**, le bouton **Charger le règlement FiveM & Discord** permet de charger le nouveau modèle dans l’éditeur avant publication.
+
+### Ouvrir Helpeur ou Animateur
+
+Dans **Candidatures**, un responsable disposant du nouveau droit **Ouvrir, fermer et annoncer les recrutements** ouvre ou ferme séparément **Helpeur** et **Animateur**. Le formulaire public n’accepte que les postes ouverts et vérifie à nouveau leur disponibilité au moment d’enregistrer la candidature.
+
+- Salon des annonces et résultats : `1568410724605239326`.
+- Rôle mentionné lors d’une ouverture ou d’une nouvelle annonce volontaire : `1564827474099966103`.
+- L’annonce affiche les deux états et les liens directs `/candidatures?type=helper` et `/candidatures?type=animator` pour les postes ouverts.
+- La première sauvegarde des réglages synchronise l’annonce, même lorsque l’ancien recrutement général était déjà ouvert.
+- Une sauvegarde sans changement ne renvoie pas inutilement l’annonce. **Renvoyer l’annonce actuelle** permet une nouvelle publication volontaire.
+- Une fermeture est annoncée sans mentionner le rôle. Si Discord est indisponible, une fermeture seule reste appliquée au site, avec un avertissement dans le panel. Une ouverture qui ne peut pas être annoncée est refusée et doit être retentée.
+
+Les réglages d’ouverture ont leur propre version et ne sont plus modifiables indirectement par la sauvegarde des pages publiques. Le texte d’accueil reste éditable dans Pages publiques. Le bot doit pouvoir voir le salon et y envoyer des messages ; pour notifier le rôle, celui-ci doit être mentionnable ou le bot doit avoir la permission Discord correspondante. `PUBLIC_URL` doit contenir l’adresse publique courante du site, notamment après un changement de tunnel.
+
+### Formulaire et notifications
+
+La candidature demande le poste, la motivation, l’expérience, les disponibilités, une estimation du nombre d’heures par semaine et une mise en situation adaptée au rôle. Le compte Discord est vérifié, le règlement doit être accepté, et la limite d’une candidature active par compte reste applicable. Les anciennes candidatures générales sont conservées et restent traitables.
+
+Un MP est tenté lors de la réception, de la prise en charge, de l’acceptation et du refus. Chaque message comporte le poste, la référence du dossier et le lien du suivi ; les décisions incluent le retour privé du staff. Les messages trop longs sont découpés. Un échec de MP ne supprime jamais la candidature ni la décision. Le panel affiche le statut du dernier MP et permet de le retenter. Le suivi privé sur le site reste disponible si le candidat refuse les MP.
+
+### Résultats groupés
+
+Quand le bot est connecté, les nouvelles décisions finales sont regroupées automatiquement chaque minute dans le salon de recrutement, avec des rubriques **Acceptées** et **Refusées** et le poste de chaque candidat. Le bouton **Publier les résultats en attente maintenant** déclenche le même traitement. Seules les identités Discord et les décisions sont publiques ; les réponses et les motifs détaillés restent dans le suivi privé et les MP. Le formulaire en informe le candidat avant l’envoi.
+
+Les envois confirmés sont mémorisés pour éviter de republier les mêmes décisions. Les groupes de plus de 12 dossiers sont répartis en plusieurs messages ; en cas d’échec partiel, le traitement reprend avec les groupes restants. Une décision corrigée d’acceptée vers refusée ou inversement produit un nouveau résultat. Les anciennes décisions prises avant cette mise à jour ne sont pas annoncées rétroactivement. La file et les statuts d’envoi sont conservés dans `data/state.json`. Aucun rôle staff n’est attribué automatiquement.
+
+Après déploiement, redémarrer le bot pour activer le traitement périodique. Les tests utilisent Discord simulé ; vérifier les permissions du bot et les liens publics sur Gamost avant la première annonce réelle.

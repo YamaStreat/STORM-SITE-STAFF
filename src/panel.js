@@ -6,7 +6,7 @@ const NOTIFY_ROLES = Object.freeze({ patchNotes: '1568307263695749201', giveaway
 const PERMISSIONS = Object.freeze({
   tickets: 'Gérer les tickets et contestations', announcements: 'Publier des annonces', giveaways: 'Gérer les giveaways', streams: 'Publier des streams',
   patchNotes: 'Publier des patch notes', settings: 'Gérer le statut du serveur', access: 'Configurer les accès staff',
-  content: 'Gérer les pages publiques', applications: 'Étudier les candidatures staff', members: 'Voir les fiches membres, sanctions et tickets', audit: 'Consulter le journal des actions', statistics: 'Consulter les statistiques de support', drafts: 'Rédiger des brouillons', approvePublications: 'Valider les publications',
+  recruitment: 'Ouvrir, fermer et annoncer les recrutements', content: 'Gérer les pages publiques', applications: 'Étudier les candidatures staff', members: 'Voir les fiches membres, sanctions et tickets', audit: 'Consulter le journal des actions', statistics: 'Consulter les statistiques de support', drafts: 'Rédiger des brouillons', approvePublications: 'Valider les publications',
   ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire / retirer le mute', warn: 'Avertir'
 });
 const SNOWFLAKE = /^\d{17,20}$/;
@@ -52,7 +52,7 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
       if (req.headers.origin !== expected) return res.status(403).json({ error: 'Origine de la requête refusée.' });
     }
     const area = req.path.split('/')[1];
-    const permission = ({ dossiers: 'tickets', appeals: 'tickets', announcements: 'announcements', giveaways: 'giveaways', streams: 'streams', 'site-status': 'settings', 'development-message': 'settings', 'patch-notes': 'patchNotes', access: 'access', content: 'content', applications: 'applications', members: 'members', audit: 'audit', statistics: 'statistics' })[area];
+    const permission = ({ dossiers: 'tickets', appeals: 'tickets', announcements: 'announcements', giveaways: 'giveaways', streams: 'streams', 'site-status': 'settings', 'development-message': 'settings', 'patch-notes': 'patchNotes', access: 'access', content: 'content', applications: 'applications', recruitment: 'recruitment', members: 'members', audit: 'audit', statistics: 'statistics' })[area];
     if (permission && !access.permissions.includes(permission)) return res.status(403).json({ error: `Permission requise : ${PERMISSIONS[permission]}.` });
     next();
   }));

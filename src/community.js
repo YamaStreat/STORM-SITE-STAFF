@@ -1,9 +1,11 @@
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { RULES, LEGACY_RULES, RULES_VERSION } = require('./rules');
+const { TYPES, settingsFor, createRecruitmentService } = require('./recruitment');
 const ID = /^\d{17,20}$/;
 const DEFAULT_CONTENT = {
   roadmap: [{title:'Site public et espace staff',status:'done',description:'Un point central pour les actualités et les outils de l’équipe.'},{title:'Préparation du serveur FiveM',status:'in_progress',description:'Le serveur est actuellement en développement.'},{title:'Annonce de l’ouverture',status:'planned',description:'La date sera communiquée lorsque le serveur sera prêt.'}],
-  rules: [{title:'Respect de la communauté',text:'Respecte les joueurs et le staff. Les insultes, le harcèlement et les propos discriminatoires sont interdits.'},{title:'Jeu loyal',text:'La triche et l’exploitation volontaire de bugs sont interdites. Signale les problèmes à l’équipe.'},{title:'Support et contestations',text:'Utilise les tickets Discord pour demander de l’aide ou contester une sanction calmement.'}],
+  rules: RULES,
   presentation: {description:'STØRM PVP prépare une expérience FiveM axée sur le combat, la compétition et la communauté.',features:['Une expérience orientée PVP','Une communauté Discord','Un support par tickets privés'],screenshots:[]},
   faq:[{question:'Comment rejoindre le serveur ?',answer:'Le serveur est en développement. Rejoins le Discord pour suivre les annonces et connaître la date d’ouverture.'},{question:'Comment contacter le staff ?',answer:'Ouvre un ticket depuis le panel Discord. La conversation continue en message privé.'},{question:'Comment contester une sanction ?',answer:'Utilise la procédure de contestation sur Discord et explique clairement ta situation.'}],
   recruitment:{open:true,intro:'Tu souhaites contribuer à STØRM ? Présente ta motivation, ton expérience et tes disponibilités. L’équipe étudiera ta candidature.'}
@@ -50,28 +52,45 @@ function validateContent(input){
   };
 }
 function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireStaff,route}){
-  const content=()=>state.communityContent||structuredClone(DEFAULT_CONTENT);
+  const recruitment = createRecruitmentService({state,saveState,client,guildId,publicUrl});
+  const content=()=>{
+    const base=structuredClone(state.communityContent||DEFAULT_CONTENT);
+    if(JSON.stringify(base.rules)===JSON.stringify(LEGACY_RULES))base.rules=structuredClone(RULES);
+    const settings=settingsFor(state,base.recruitment);
+    base.recruitment={...base.recruitment,types:settings.types,open:Object.values(settings.types).some(Boolean)};
+    return base;
+  };
   const has=(req,permission)=>req.staff?.permissions.includes(permission);
   const origin=(req)=>{if(req.headers.origin&&req.headers.origin!==new URL(publicUrl).origin)error(403,'Origine refusée.');};
   const user=(req)=>{if(!req.session?.user?.id)error(401,'Connecte-toi avec Discord.');return req.session.user;};
   const checkRevision=(entry,req)=>{if(req.body.revision!==entry.revision)error(409,'Ce dossier a changé. Actualise avant de continuer.');};
   for(const page of ['developpement','reglement','serveur','faq','candidatures'])app.get('/'+page,(req,res)=>res.sendFile(path.join(__dirname,'..','public','community.html')));
-  app.get('/api/community',(req,res)=>res.json({content:content(),revision:state.contentRevision||0}));
+  app.get('/api/community',(req,res)=>res.json({content:content(),revision:state.contentRevision||0,recruitmentTypes:TYPES,rulesVersion:RULES_VERSION}));
   app.get('/api/applications/mine',route(async(req,res)=>{
     const applicant=user(req);res.set('Cache-Control','no-store');
-    res.json((state.applications||[]).filter(row=>row.userId===applicant.id).map(({id,status,createdAt,updatedAt,feedback,revision})=>({id,status,createdAt,updatedAt,feedback,revision})));
+    res.json((state.applications||[]).filter(row=>row.userId===applicant.id).map(({id,type,status,createdAt,updatedAt,feedback,revision,notifications})=>({id,type,status,createdAt,updatedAt,feedback,revision,notificationStatus:notifications?.at(-1)?.status||null})));
   }));
   app.post('/api/applications',route(async(req,res)=>{
     origin(req);const applicant=user(req);
     if(!content().recruitment.open)error(409,'Les candidatures sont actuellement fermées.');
+    const type=req.body.type;
+    if(!Object.hasOwn(TYPES,type||''))error(400,'Choisis le recrutement Helpeur ou Animateur.');
+    if(!content().recruitment.types[type])error(409,'Ce type de recrutement est fermé.');
+    const scenario=text(req.body.scenario,2000,30);
+    const weeklyHours=Number(req.body.weeklyHours);
+    if(!Number.isInteger(weeklyHours)||weeklyHours<1||weeklyHours>80)error(400,'Indique entre 1 et 80 heures de disponibilité par semaine.');
     if(req.body.rulesAccepted!==true)error(400,'Tu dois accepter le règlement.');
     const motivation=text(req.body.motivation,2500,30),availability=text(req.body.availability,500,3),experience=text(req.body.experience,2000,3);
     await (await client.guilds.fetch(guildId)).members.fetch({user:applicant.id,force:true}).catch(e=>{if(e.code===10007)error(403,'Rejoins le serveur Discord avant de candidater.');throw e;});
+    if(!content().recruitment.types[type])error(409,'Ce recrutement vient de fermer.');
     state.applications||=[];
     if(state.applications.some(row=>row.userId===applicant.id&&(['pending','reviewing'].includes(row.status)||row.createdAt>Date.now()-86400000)))error(409,'Tu as déjà une candidature en cours ou envoyée depuis moins de 24 heures.');
     if(state.applications.length>=2000)error(503,'Le formulaire est temporairement indisponible. Contacte l’équipe.');
-    const entry={id:randomUUID(),userId:applicant.id,username:applicant.username,motivation,availability,experience,status:'pending',feedback:'',createdAt:Date.now(),updatedAt:Date.now(),revision:1};
-    state.applications.unshift(entry);saveState();res.status(201).json({ok:true,id:entry.id});
+    const entry={id:randomUUID(),userId:applicant.id,username:applicant.username,type,scenario,weeklyHours,rulesVersion:RULES_VERSION,motivation,availability,experience,status:'pending',feedback:'',createdAt:Date.now(),updatedAt:Date.now(),revision:1};
+    state.applications.unshift(entry);saveState();
+    const notification=recruitment.queueDM(entry,'received');
+    const dmSent=await recruitment.deliver(entry,notification);
+    res.status(201).json({ok:true,id:entry.id,dmSent});
   }));
   // Journal only successful writes; never store request bodies, OAuth values or private form answers here.
   app.use('/api/admin',(req,res,next)=>{
@@ -97,17 +116,38 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
       next();
     }catch(e){res.status(e.status||500).json({error:e.message});}
   }
-  app.get('/api/admin/content',requireStaff,route(async(req,res)=>res.json({content:content(),revision:state.contentRevision||0})));
+  app.get('/api/admin/content',requireStaff,route(async(req,res)=>res.json({content:content(),revision:state.contentRevision||0,rulesTemplate:RULES})));
   app.post('/api/admin/content',requireStaff,route(async(req,res)=>{
     if(req.body.revision!==(state.contentRevision||0))error(409,'Le contenu a changé. Recharge la page.');
-    state.communityContent=validateContent(req.body.content);state.contentRevision=(state.contentRevision||0)+1;saveState();res.json({ok:true,revision:state.contentRevision});
+    const nextContent=validateContent(req.body.content);
+    // Recruitment openings use their own announced workflow; content edits cannot bypass it.
+    nextContent.recruitment.open=content().recruitment.open;
+    state.communityContent=nextContent;state.contentRevision=(state.contentRevision||0)+1;saveState();res.json({ok:true,revision:state.contentRevision});
+  }));
+  app.get('/api/admin/recruitment',requireStaff,route(async(req,res)=>res.json({...settingsFor(state,(state.communityContent||DEFAULT_CONTENT).recruitment),typesInfo:TYPES})));
+  app.post('/api/admin/recruitment',requireStaff,route(async(req,res)=>{
+    const result=await recruitment.updateSettings({...req.body,base:(state.communityContent||DEFAULT_CONTENT).recruitment});res.json({ok:true,...result});
+  }));
+  app.get('/api/admin/applications/results',requireStaff,route(async(req,res)=>res.json({pending:(state.applications||[]).filter(row=>['accepted','rejected'].includes(row.status)&&row.publicDecisionVersion&&(row.publicResultPublishedVersion||0)<row.publicDecisionVersion).length,lastError:state.recruitmentResultsError||null,batches:(state.recruitmentBatches||[]).slice(0,10)})));
+  app.post('/api/admin/applications/results',requireStaff,route(async(req,res)=>res.json({ok:true,...await recruitment.flushResults()})));
+  app.post('/api/admin/applications/:id/notify',requireStaff,route(async(req,res)=>{
+    const entry=(state.applications||[]).find(row=>row.id===req.params.id);if(!entry)error(404,'Candidature introuvable.');
+    const event=entry.notifications?.at(-1);if(!event)error(409,'Aucune notification disponible.');
+    const dmSent=await recruitment.deliver(entry,event);res.json({ok:true,dmSent});
   }));
   app.get('/api/admin/applications',requireStaff,route(async(req,res)=>res.json(state.applications||[])));
   app.post('/api/admin/applications/:id',requireStaff,route(async(req,res)=>{
     const entry=(state.applications||[]).find(row=>row.id===req.params.id);if(!entry)error(404,'Candidature introuvable.');checkRevision(entry,req);
     if(!['reviewing','accepted','rejected'].includes(req.body.status))error(400,'Décision invalide.');
     const feedback=text(req.body.feedback,1500,req.body.status==='reviewing'?0:3);
-    entry.status=req.body.status;entry.feedback=feedback;entry.reviewedBy=req.session.user.id;entry.updatedAt=Date.now();entry.revision++;saveState();res.json({ok:true});
+    const statusChanged=entry.status!==req.body.status;
+    if(!statusChanged&&entry.feedback===feedback)return res.json({ok:true,unchanged:true});
+    entry.status=req.body.status;entry.feedback=feedback;entry.reviewedBy=req.session.user.id;entry.updatedAt=Date.now();entry.revision++;
+    if(statusChanged&&['accepted','rejected'].includes(entry.status))entry.publicDecisionVersion=(entry.publicDecisionVersion||0)+1;
+    saveState();
+    const notification=recruitment.queueDM(entry,entry.status,feedback);
+    const dmSent=await recruitment.deliver(entry,notification);
+    res.json({ok:true,dmSent,resultsQueued:['accepted','rejected'].includes(entry.status)});
   }));
   app.get('/api/admin/audit',requireStaff,route(async(req,res)=>{
     const search=String(req.query.q||'').slice(0,100).toLowerCase();

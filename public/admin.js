@@ -35,7 +35,7 @@ async function api(url, opt = {}) {
 
 function activateTab(tab) {
   if (tab === 'drafts' && !can('drafts') && !can('approvePublications')) return notice('Accès aux brouillons refusé.', true);
-  if ((tabPermissions[tab] && !can(tabPermissions[tab])) || (tab === 'moderation' && !canModerate())) return notice('Tu ne disposes pas de cette permission.', true);
+  if ((tabPermissions[tab] && !can(tabPermissions[tab]) && !(tab === 'applications' && can('recruitment'))) || (tab === 'moderation' && !canModerate())) return notice('Tu ne disposes pas de cette permission.', true);
   if (typeof loadFeatureTab === 'function') loadFeatureTab(tab);
   $$('.admin-menu button').forEach((b) => {
     b.classList.toggle('active', b.dataset.tab === tab);
@@ -269,12 +269,12 @@ async function refreshPanel() {
   permissions = panelInfo.permissions;
   $$('.admin-menu [data-tab], [data-jump]').forEach(button => {
     const tab = button.dataset.tab || button.dataset.jump;
-    button.hidden = tab === 'drafts' ? !can('drafts') && !can('approvePublications') : tab === 'moderation' ? !canModerate() : Boolean(tabPermissions[tab] && !can(tabPermissions[tab]));
+    button.hidden = tab === 'drafts' ? !can('drafts') && !can('approvePublications') : tab === 'moderation' ? !canModerate() : Boolean(tabPermissions[tab] && !can(tabPermissions[tab]) && !(tab === 'applications' && can('recruitment')));
     button.title = tabTitles[tab] || tab;
     button.setAttribute('aria-label', tabTitles[tab] || tab);
   });
   const selected = $('.admin-panel.active')?.id;
-  if ((tabPermissions[selected] && !can(tabPermissions[selected])) || (selected === 'moderation' && !canModerate()) || (selected === 'drafts' && !can('drafts') && !can('approvePublications'))) activateTab('dashboard');
+  if ((tabPermissions[selected] && !can(tabPermissions[selected]) && !(selected === 'applications' && can('recruitment'))) || (selected === 'moderation' && !canModerate()) || (selected === 'drafts' && !can('drafts') && !can('approvePublications'))) activateTab('dashboard');
   $('#modAction').innerHTML = Object.entries(actionLabels).filter(([key]) => can(key === 'untimeout' ? 'timeout' : key)).map(([key, label]) => `<option value="${key}">${label}</option>`).join('');
   if (typeof updateFeaturePermissions === 'function') updateFeaturePermissions();
   updateDuration();
