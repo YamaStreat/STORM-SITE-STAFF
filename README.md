@@ -96,3 +96,9 @@ Le lien « Panel staff » ouvre `/staff` : page dédiée avec fond bleu nuit, ca
 Les liens des deux logos fournis sont dans `public/branding.json`. Au démarrage, l’application tente de télécharger et vérifier les PNG pour les conserver dans `public/assets/storm-round.png` et `public/assets/storm-wordmark.png`. Une copie existante est réutilisée. Une erreur de téléchargement ne bloque pas le bot ou le site. Le navigateur utilise les images locales en priorité, puis les liens Discord. Les liens Discord étant temporaires, conserver les copies locales ; il est aussi possible de déposer manuellement les PNG originaux à ces deux chemins.
 
 Pour déployer cette page, transférer les dossiers `src/` et `public/` complets, notamment `src/branding.js`, `public/branding.json` et les fichiers `public/staff.*`. Redémarrer ensuite l’application. Les logos réels doivent être contrôlés sur Gamost ; le CDN Discord est refusé par le réseau de l’environnement de développement.
+
+## Identité visuelle du panel
+
+Le panel reprend les logos de `public/branding.json`, avec priorité aux copies locales déjà téléchargées. Le logo horizontal apparaît dans la navigation ; le logo rond apparaît dans le dashboard et la carte de statut. `public/admin-theme.css` contient le thème bleu nuit et les adaptations mobiles, sans modifier le site public. `public/admin-branding.js` charge les logos et conserve une alternative textuelle si les images sont indisponibles.
+
+Le dashboard affiche le nom du staff, la connexion Discord, l’heure de dernière actualisation (Paris), les raccourcis autorisés et les cinq dernières annonces/patch notes accessibles selon ses permissions. Les autorisations et l’éditeur ACCÈS V3 restent inchangés. Transférer le dossier `public/` complet pour inclure les nouveaux fichiers de thème et de logos du panel.

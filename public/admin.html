@@ -3,19 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#080b11">
+  <meta name="theme-color" content="#030d24">
   <title>STØRM SYSTEM — Staff</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./admin-theme.css?v=storm-1">
 </head>
 <body class="admin-page">
   <div class="admin-layout-v2">
     <aside class="admin-sidebar">
       <a class="brand admin-brand" href="/">
-        <span class="brand-mark">S</span>
-        <span>ST<span>Ø</span>RM</span>
+        <span class="sidebar-logo"><img data-panel-logo="wordmark" alt="STØRM" width="174" height="78" hidden><span data-panel-fallback class="logo-type">ST<span>Ø</span>RM</span></span>
+        <span class="sidebar-staff-label">ESPACE STAFF <i>PRIVÉ</i></span>
       </a>
-      <div class="sidebar-caption">SYSTEM // STAFF PANEL</div>
-      <nav class="admin-menu">
+      <div class="sidebar-caption">CENTRE DE CONTRÔLE</div>
+      <nav class="admin-menu" aria-label="Navigation du panel staff">
         <button data-tab="dashboard" class="active"><span>⌁</span><b>Dashboard</b></button>
         <button data-tab="tickets"><span>✉</span><b>Tickets</b><i id="menuTicketCount">0</i></button>
         <button data-tab="annonces"><span>◉</span><b>Annonces</b></button>
@@ -27,18 +28,18 @@
         <button data-tab="settings"><span>⚙</span><b>Serveur</b></button>
       </nav>
       <div class="sidebar-bottom">
-        <a class="sidebar-site-link" href="/" target="_blank">Voir le site public <span>↗</span></a>
-        <div class="system-mini"><span class="pulse-dot"></span><div><b>STØRM SYSTEM</b><small>Panel opérationnel</small></div></div>
+        <a class="sidebar-site-link" href="/" target="_blank" rel="noopener">Voir le site public <span>↗</span></a>
+        <div class="system-mini"><span class="pulse-dot"></span><div><b>STØRM SYSTEM</b><small>Vérification de la connexion…</small></div></div>
       </div>
     </aside>
 
     <main class="admin-main-v2">
       <header class="admin-topbar">
         <div>
-          <span class="admin-kicker">CONTROL CENTER</span>
+          <span class="admin-kicker">STØRM PVP / ESPACE ÉQUIPE</span>
           <h1 id="pageTitle">Dashboard</h1>
         </div>
-        <div class="topbar-actions">
+        <div class="topbar-actions"><span class="connection-pill" id="panelConnection" role="status">Connexion…</span>
           <button class="icon-btn" id="manualRefresh" title="Actualiser">↻</button>
           <div class="profile-v2">
             <img id="avatar" alt="Avatar Discord">
@@ -53,16 +54,17 @@
       <section class="admin-panel active" id="dashboard">
         <div class="admin-welcome">
           <div>
-            <span class="section-kicker">STØRM SYSTEM v2</span>
-            <h2>TOUT LE SERVEUR.<br><em>UN SEUL PANEL.</em></h2>
-            <p>Réponds aux joueurs en DM, publie tes annonces et pilote les opérations Discord depuis cette interface.</p>
+            <span class="section-kicker">BON RETOUR, <span id="welcomeName">STAFF</span></span>
+            <h2>DANS LES COULISSES<br><em>DE LA TEMPÊTE.</em></h2>
+            <p>Un espace pour ton équipe. Accompagne les joueurs, anime la communauté et fais avancer STØRM depuis ton centre de contrôle.</p>
           </div>
-          <div class="welcome-badge"><span class="pulse-dot big"></span><b>BOT + WEB</b><small>Synchronisation active</small></div>
+          <div class="welcome-badge"><div class="hero-storm-logo"><img data-panel-logo="round" alt="Logo STØRM PVP" width="180" height="180" hidden><span data-panel-fallback class="logo-type">S</span></div><b>STØRM PVP</b><small>Vérification de Discord…</small></div>
         </div>
 
+        <div class="dashboard-toolbar"><p><span class="toolbar-dot"></span> Vue d’ensemble de la communauté</p><span id="dashboardSync">Chargement des données…</span></div>
         <div class="stats-v2">
           <article class="stat-v2"><span class="stat-icon">✉</span><div><small>Tickets ouverts</small><b id="sTickets">0</b></div><span class="stat-foot">Support</span></article>
-          <article class="stat-v2"><span class="stat-icon">⌁</span><div><small>Contestations</small><b id="sAppeals">0</b></div><span class="stat-foot">Ban appeals</span></article>
+          <article class="stat-v2"><span class="stat-icon">⌁</span><div><small>Contestations</small><b id="sAppeals">0</b></div><span class="stat-foot">Contestations de ban</span></article>
           <article class="stat-v2"><span class="stat-icon">◇</span><div><small>Giveaways actifs</small><b id="sGiveaways">0</b></div><span class="stat-foot">Communauté</span></article>
           <article class="stat-v2"><span class="stat-icon">◉</span><div><small>Annonces</small><b id="sAnnouncements">0</b></div><span class="stat-foot">Publications</span></article>
         </div>
@@ -73,15 +75,19 @@
             <div class="quick-actions">
               <button data-jump="tickets"><span>✉</span><div><b>Répondre aux tickets</b><small>Voir les conversations DM</small></div><i>→</i></button>
               <button data-jump="annonces"><span>◉</span><div><b>Publier une annonce</b><small>Discord + site public</small></div><i>→</i></button>
-              <button data-jump="giveaways"><span>◇</span><div><b>Lancer un giveaway</b><small>Création instantanée</small></div><i>→</i></button>
+              <button data-jump="giveaways"><span>◇</span><div><b>Lancer un giveaway</b><small>Récompenser la communauté</small></div><i>→</i></button>
+              <button data-jump="moderation"><span>⛨</span><div><b>Modérer un membre</b><small>Sanctions et historique</small></div><i>→</i></button>
+              <button data-jump="patchNotes"><span>≡</span><div><b>Publier un patch note</b><small>Partager les dernières avancées</small></div><i>→</i></button>
+              <button data-jump="access"><span>⌘</span><div><b>Gérer les accès</b><small>Permissions de chaque rôle</small></div><i>→</i></button>
             </div>
           </article>
           <article class="admin-card server-card">
             <div class="card-heading"><div><span class="section-kicker">FIVEM</span><h3>État public</h3></div><span class="server-dev-badge" id="dashboardServerBadge">DÉVELOPPEMENT</span></div>
-            <div class="server-visual-mini"><div class="mini-ring"></div><div class="mini-core">S</div></div>
+            <div class="server-visual-mini"><div class="mini-ring"></div><div class="server-logo"><img data-panel-logo="round" alt="" width="92" height="92" hidden><span data-panel-fallback>S</span></div></div>
             <p>Le site affiche actuellement le mode développement. Tu peux le modifier dans l'onglet Serveur.</p>
           </article>
         </div>
+        <article class="admin-card activity-card"><div class="card-heading"><div><span class="section-kicker">LE FIL DE L’ÉQUIPE</span><h3>Dernières publications</h3></div><span class="activity-caption">Annonces & patch notes</span></div><div id="dashboardActivity" class="activity-list" aria-live="polite"><p class="muted">Chargement des publications…</p></div></article>
       </section>
 
       <section class="admin-panel" id="tickets">
@@ -202,6 +208,7 @@ Nouveau contenu ajouté"></textarea></div>
       </section>
     </main>
   </div>
-  <script src="./admin.js?v=access-v3"></script>
+  <script src="./admin-branding.js?v=storm-1"></script>
+  <script src="./admin.js?v=storm-panel-1"></script>
 </body>
 </html>

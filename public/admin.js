@@ -33,7 +33,10 @@ async function api(url, opt = {}) {
 
 function activateTab(tab) {
   if ((tabPermissions[tab] && !can(tabPermissions[tab])) || (tab === 'moderation' && !canModerate())) return notice('Tu ne disposes pas de cette permission.', true);
-  $$('.admin-menu button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  $$('.admin-menu button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+    if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
   $$('.admin-panel').forEach((p) => p.classList.toggle('active', p.id === tab));
   $('#pageTitle').textContent = tabTitles[tab] || 'STØRM SYSTEM';
   if (tab === 'tickets') loadDossiers().catch(e => notice(e.message, true));
@@ -51,6 +54,7 @@ async function boot() {
   if (!me.user) { location.href = '/staff'; return; }
   if (!me.user.isStaff) { notice('Ton compte ne dispose pas d’un rôle autorisé. Contacte le propriétaire du serveur.', true); return; }
   $('#username').textContent = me.user.username;
+  $('#welcomeName').textContent = me.user.username;
   $('#avatar').src = me.user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
   await refreshPanel();
 }
@@ -63,8 +67,12 @@ async function summary() {
   $('#sAnnouncements').textContent = d.announcements;
   $('#menuTicketCount').textContent = d.openTickets + d.openAppeals;
   $('#developmentMode').checked = d.development;
+  $('#dashboardSync').textContent = 'Actualisé à ' + new Date().toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+  $('#panelConnection').textContent = d.botReady ? 'Discord connecté' : 'Discord en attente';
+  $('#panelConnection').classList.toggle('connected', Boolean(d.botReady));
   $('.welcome-badge small').textContent = d.botReady ? 'Discord connecté' : 'Connexion Discord en attente';
   $('.system-mini small').textContent = d.botReady ? 'Bot connecté' : 'Bot en attente';
+  $('.system-mini').classList.toggle('pending', !d.botReady);
   $('.server-card p').textContent = d.development ? 'Le serveur est en cours de développement. Le site affiche ce statut aux joueurs.' : 'Le statut public suit la disponibilité FiveM lorsque son URL est configurée.';
   const badge = $('#dashboardServerBadge');
   badge.textContent = d.development ? 'DÉVELOPPEMENT' : 'STATUT AUTOMATIQUE';
@@ -265,7 +273,7 @@ async function refreshPanel() {
   updateDuration();
   $('#patchVersion').textContent = panelInfo.nextVersion;
   updatePatchPreview();
-  await Promise.all([summary(), can('streams') ? channels() : null, loadDossiers(), loadGiveaways()]);
+  await Promise.all([summary(), can('streams') ? channels() : null, loadDossiers(), loadGiveaways(), loadDashboardActivity()]);
 }
 function updateDuration() { $('#durationField').hidden = $('#modAction').value !== 'timeout'; }
 $('#modAction').onchange = updateDuration;
@@ -373,3 +381,17 @@ async function saveOneRole(id, remove, button) {
     finally { button.disabled = false; }
   };
 });
+
+async function loadDashboardActivity() {
+  const sources = [];
+  if (can('announcements')) sources.push(api('/api/admin/announcements').then(rows => (rows || []).map(row => ({...row, kind:'Annonce', tab:'annonces'}))));
+  if (can('patchNotes')) sources.push(api('/api/admin/patch-notes').then(rows => (rows || []).map(row => ({...row, title:row.version, kind:'Patch note', tab:'patchNotes'}))));
+  const results = await Promise.allSettled(sources);
+  const failed = results.some(result => result.status === 'rejected');
+  const rows = results.filter(result => result.status === 'fulfilled').flatMap(result => result.value).sort((a,b) => b.createdAt - a.createdAt).slice(0,5);
+  const box = $('#dashboardActivity');
+  if (!rows.length) { box.innerHTML = `<div class="activity-empty"><span>◌</span><p>${failed ? 'Les publications sont temporairement indisponibles.' : sources.length ? 'Les prochaines publications de l’équipe apparaîtront ici.' : 'Les publications ne sont pas accessibles avec tes permissions actuelles.'}</p></div>`; return; }
+  box.innerHTML = rows.map(row => `<button class="activity-item" data-activity-tab="${row.tab}"><span class="activity-icon">${row.tab === 'patchNotes' ? '≡' : '◉'}</span><span class="activity-copy"><small>${row.kind}</small><b>${esc(row.title)}</b><span>${esc(row.author || 'Équipe STØRM')}</span></span><time>${esc(new Date(row.createdAt).toLocaleDateString('fr-FR', {timeZone:'Europe/Paris',day:'2-digit',month:'short'}))}</time><span aria-hidden="true">↗</span></button>`).join('');
+  if (failed) box.insertAdjacentHTML('beforeend', '<p class="muted">Certaines publications n’ont pas pu être chargées.</p>');
+  box.querySelectorAll('[data-activity-tab]').forEach(button => button.onclick = () => activateTab(button.dataset.activityTab));
+}
