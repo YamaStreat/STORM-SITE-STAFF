@@ -21,6 +21,9 @@
         <button data-tab="annonces"><span>◉</span><b>Annonces</b></button>
         <button data-tab="giveaways"><span>◇</span><b>Giveaways</b></button>
         <button data-tab="streams"><span>●</span><b>Streams</b></button>
+        <button data-tab="moderation"><span>⛨</span><b>Modération</b></button>
+        <button data-tab="patchNotes"><span>≡</span><b>Patch notes</b></button>
+        <button data-tab="access"><span>⌘</span><b>Accès & rôles</b></button>
         <button data-tab="settings"><span>⚙</span><b>Serveur</b></button>
       </nav>
       <div class="sidebar-bottom">
@@ -45,7 +48,7 @@
         </div>
       </header>
 
-      <div id="globalNotice" class="notice-wrap"></div>
+      <div id="globalNotice" class="notice-wrap" role="status" aria-live="polite"></div>
 
       <section class="admin-panel active" id="dashboard">
         <div class="admin-welcome">
@@ -107,7 +110,7 @@
         <div class="panel-head"><div><span class="section-kicker">BROADCAST</span><h2>Publier une annonce</h2><p>Une seule publication : Discord et le site public sont mis à jour ensemble.</p></div></div>
         <div class="editor-grid">
           <div class="admin-card form-card">
-            <div class="field"><label>Salon Discord</label><select class="select discord-channels" id="annChannel"></select></div>
+            <div class="field"><label>Salon Discord</label><div class="destination-pill"># Annonces <small>1564691828312375449 · destination automatique</small></div></div>
             <div class="field"><label>Titre</label><input class="input" id="annTitle" placeholder="Ex. Mise à jour STØRM PVP"></div>
             <div class="field"><label>Message</label><textarea class="textarea" id="annMessage" placeholder="Écris ton annonce..."></textarea></div>
             <div class="field"><label>URL image <span>optionnel</span></label><input class="input" id="annImage" placeholder="https://..."></div>
@@ -117,7 +120,7 @@
           <div class="preview-column">
             <span class="section-kicker">APERÇU SITE</span>
             <article class="news-card preview-news"><div class="news-index">01</div><div><span class="news-date">À L'INSTANT • STAFF</span><h3 id="annPreviewTitle">Titre de ton annonce</h3><p id="annPreviewMessage">Le contenu de ton annonce apparaîtra ici.</p><div id="annPreviewImage"></div></div></article>
-            <div class="preview-note"><span>i</span><p>L'annonce sera également envoyée en embed dans le salon Discord sélectionné.</p></div>
+            <div class="preview-note"><span>i</span><p>L'annonce sera également envoyée en embed dans le salon d’annonces configuré.</p></div>
           </div>
         </div>
       </section>
@@ -126,7 +129,7 @@
         <div class="panel-head"><div><span class="section-kicker">COMMUNITY REWARDS</span><h2>Giveaways</h2><p>Crée un concours Discord et gère les rerolls depuis le site.</p></div></div>
         <div class="admin-card">
           <div class="form-grid-v2">
-            <div class="field"><label>Salon Discord</label><select class="select discord-channels" id="giveChannel"></select></div>
+            <div class="field"><label>Salon Discord</label><div class="destination-pill"># Giveaways <small>1568295438610858024 · destination automatique</small></div></div>
             <div class="field"><label>Lot à gagner</label><input class="input" id="givePrize" placeholder="VIP Gold • 1 mois"></div>
             <div class="field"><label>Durée</label><input class="input" id="giveDuration" placeholder="Ex. 30m, 2h, 1d"></div>
             <div class="field"><label>Nombre de gagnants</label><input class="input" id="giveWinners" type="number" min="1" max="10" value="1"></div>
@@ -156,7 +159,46 @@
           <div class="status-config-copy"><h3>Mode développement</h3><p>Lorsque cette option est active, le site affiche <b>« En cours de développement »</b> et ouvre une fenêtre d'information au clic.</p></div>
           <label class="big-toggle"><input type="checkbox" id="developmentMode"><span></span></label>
         </div>
-        <button class="btn btn-primary" id="saveStatus">Enregistrer le statut</button>
+        <div class="action-row"><button class="btn btn-primary" id="saveStatus">Enregistrer et synchroniser Discord</button><button class="btn btn-outline" id="publishDevelopment">Publier / actualiser le message Discord</button></div><p class="muted">Le message est envoyé dans le salon 1564691848222613644. Enregistrer le statut synchronise aussi ce message, sans créer de doublon.</p>
+      </section>
+
+      <section class="admin-panel" id="moderation">
+        <div class="panel-head"><div><span class="section-kicker">PROTECTION COMMUNAUTAIRE</span><h2>Modération</h2><p>Chaque sanction est motivée et enregistrée. Les permissions Discord et la hiérarchie des rôles s’appliquent.</p></div></div>
+        <div class="editor-grid">
+          <form id="moderationForm" class="admin-card form-card">
+            <div class="field"><label for="modUser">Identifiant Discord du membre</label><input id="modUser" class="input" inputmode="numeric" pattern="[0-9]{17,20}" required placeholder="Clic droit sur le membre → Copier l’identifiant"></div>
+            <div class="field"><label for="modAction">Action</label><select id="modAction" class="select"></select></div>
+            <div class="field" id="durationField"><label for="modMinutes">Durée du mute en minutes</label><input id="modMinutes" class="input" type="number" min="1" max="40320" value="60"><small class="muted">Maximum : 28 jours (40 320 minutes).</small></div>
+            <div class="field"><label for="modReason">Motif obligatoire</label><textarea id="modReason" class="textarea short" maxlength="400" required placeholder="Explique précisément la décision…"></textarea></div>
+            <button class="btn btn-danger" type="submit">Vérifier et appliquer</button>
+          </form>
+          <article class="admin-card"><span class="section-kicker">BONNES PRATIQUES</span><h3>Une décision claire, un suivi durable.</h3><p class="muted">Vérifie l’identifiant avant de confirmer. Le mute temporaire utilise le timeout Discord et se termine automatiquement.</p><p class="muted">Les avertissements sont conservés dans le journal. Un message privé est tenté, même si le membre peut avoir fermé ses DM.</p></article>
+        </div>
+        <div class="admin-card table-card"><h3>Journal de modération</h3><div class="table-scroll"><table class="table-v2"><thead><tr><th>Date</th><th>Membre</th><th>Action</th><th>Motif</th><th>Staff</th></tr></thead><tbody id="moderationHistory"></tbody></table></div></div>
+      </section>
+      <section class="admin-panel" id="patchNotes">
+        <div class="panel-head"><div><span class="section-kicker">DEVELOPMENT TEAM</span><h2>Patch notes</h2><p>La date et la version sont automatiques. Une ligne = une entrée. Laisse les rubriques inutiles vides.</p></div><span class="version-tag" id="patchVersion">v1.0.0</span></div>
+        <div class="editor-grid">
+          <form id="patchForm" class="admin-card form-card">
+            <div class="destination-pill"># 𝙋𝙖𝙩𝙘𝙝-𝙉𝙤𝙩𝙚𝙨 <small>1564739753222475807</small></div>
+            <div class="field"><label for="patchAdditions">🆕 Ajouts</label><textarea id="patchAdditions" class="textarea short" placeholder="Nouveau système / fonctionnalité
+Nouveau contenu ajouté"></textarea></div>
+            <div class="field"><label for="patchChanges">🔄 Modifications</label><textarea id="patchChanges" class="textarea short" placeholder="Modification d’un système existant"></textarea></div>
+            <div class="field"><label for="patchFixes">🐛 Corrections</label><textarea id="patchFixes" class="textarea short" placeholder="Correction de bugs signalés"></textarea></div>
+            <div class="field"><label for="patchOptimizations">⚙️ Optimisations</label><textarea id="patchOptimizations" class="textarea short" placeholder="Amélioration des performances"></textarea></div>
+            <button class="btn btn-primary" type="submit">Publier le patch note</button>
+          </form>
+          <div><article class="admin-card"><span class="section-kicker">APERÇU DISCORD · DATE DE PARIS</span><pre class="patch-preview" id="patchPreview"></pre><small class="muted" id="patchLength"></small></article><div id="patchHistory" class="patch-history"></div></div>
+        </div>
+      </section>
+      <section class="admin-panel" id="access">
+        <div class="panel-head"><div><span class="section-kicker">CONTRÔLE DES ACCÈS</span><h2>Rôles & permissions</h2><p>Les permissions des rôles s’additionnent. Le propriétaire du serveur conserve tous les droits.</p></div></div>
+        <div class="admin-card form-card">
+          <div class="action-row"><select class="select" id="accessRole" aria-label="Choisir un rôle Discord"></select><button class="btn btn-outline" id="addAccessRole">Ajouter un rôle</button></div>
+          <p class="muted">Coche les droits accordés à chaque rôle. Retirer un rôle coupe son accès au panel. Le droit « Configurer les accès staff » permet d’accorder tous les droits : réserve-le aux responsables.</p>
+          <div id="accessMatrix" class="access-matrix"></div>
+          <button class="btn btn-primary" id="saveAccess">Enregistrer les permissions</button>
+        </div>
       </section>
     </main>
   </div>

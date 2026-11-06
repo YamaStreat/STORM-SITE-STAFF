@@ -5,6 +5,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
+const { installPanel, CHANNELS } = require('./panel');
 const {
   Client,
   GatewayIntentBits,
@@ -100,7 +101,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('annonce')
     .setDescription('Publie une annonce STORM')
-    .addChannelOption(o => o.setName('salon').setDescription('Salon de destination').addChannelTypes(ChannelType.GuildText).setRequired(true))
     .addStringOption(o => o.setName('titre').setDescription('Titre').setRequired(true))
     .addStringOption(o => o.setName('message').setDescription('Contenu').setRequired(true))
     .addStringOption(o => o.setName('image').setDescription('URL d’une image'))
@@ -118,7 +118,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('giveaway')
     .setDescription('Lance un giveaway')
-    .addChannelOption(o => o.setName('salon').setDescription('Salon du giveaway').addChannelTypes(ChannelType.GuildText).setRequired(true))
     .addStringOption(o => o.setName('duree').setDescription('Ex: 10m, 2h, 1d').setRequired(true))
     .addStringOption(o => o.setName('lot').setDescription('Lot à gagner').setRequired(true))
     .addIntegerOption(o => o.setName('gagnants').setDescription('Nombre de gagnants').setMinValue(1).setMaxValue(10).setRequired(true))
@@ -697,7 +696,7 @@ async function handleDM(message) {
 }
 
 async function startGiveaway(interaction) {
-  const channel = interaction.options.getChannel('salon');
+  const channel = await interaction.guild.channels.fetch(CHANNELS.giveaways);
   const durationText = interaction.options.getString('duree');
   const duration = parseDuration(durationText);
   if (!duration) return interaction.reply({ content: '❌ Durée invalide. Utilise par exemple `10m`, `2h` ou `1d`.', ephemeral: true });
@@ -816,7 +815,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (!(await ensureSetup(interaction.guild, interaction))) return;
 
       if (interaction.commandName === 'annonce') {
-        const channel = interaction.options.getChannel('salon');
+        const channel = await interaction.guild.channels.fetch(CHANNELS.announcements);
         const title = interaction.options.getString('titre');
         const message = interaction.options.getString('message');
         const image = interaction.options.getString('image');
@@ -934,6 +933,7 @@ process.on('uncaughtException', console.error);
 // ================================================================
 // WEB PANEL / SITE STORM
 // ================================================================
+const asyncRoute = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
@@ -952,21 +952,7 @@ function cleanText(v, max = 4000) { return String(v ?? '').trim().slice(0, max);
 function dossierByChannelId(id) { return state.tickets[id] || state.appeals[id] || null; }
 function dossierKind(id) { return state.tickets[id] ? 'ticket' : (state.appeals[id] ? 'appeal' : null); }
 
-async function isAuthorizedStaff(userId, memberData = null) {
-  if (!userId) return false;
-  try {
-    const guild = await client.guilds.fetch(GUILD_ID);
-    if (guild.ownerId === userId) return true;
-  } catch (_) {}
-  const roles = memberData?.roles || [];
-  if (config.staffRoleId && roles.includes(config.staffRoleId)) return true;
-  return false;
-}
-
-function requireStaff(req, res, next) {
-  if (!req.session?.user?.isStaff) return res.status(401).json({ error: 'Connexion staff requise.' });
-  next();
-}
+const { requireStaff, resolveAccess } = installPanel(app, { client, getConfig: () => config, state, saveConfig, saveState, guildId: GUILD_ID, publicUrl: PUBLIC_URL });
 
 app.get('/auth/discord', (req, res) => {
   if (!oauthReady()) return res.status(503).send('OAuth Discord non configuré. Ajoute DISCORD_CLIENT_SECRET et PUBLIC_URL dans .env.');
@@ -983,7 +969,7 @@ app.get('/auth/discord', (req, res) => {
   res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
 });
 
-app.get('/auth/discord/callback', async (req, res) => {
+app.get('/auth/discord/callback', asyncRoute(async (req, res) => {
   try {
     if (!req.query.code || req.query.state !== req.session.oauthState) return res.status(400).send('Connexion Discord invalide.');
     const body = new URLSearchParams({
@@ -999,14 +985,11 @@ app.get('/auth/discord/callback', async (req, res) => {
     if (!tokenResp.ok) throw new Error(`OAuth token HTTP ${tokenResp.status}`);
     const tokenData = await tokenResp.json();
     const headers = { Authorization: `Bearer ${tokenData.access_token}` };
-    const [userResp, memberResp] = await Promise.all([
-      fetch('https://discord.com/api/v10/users/@me', { headers }),
-      fetch(`https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`, { headers })
-    ]);
+    const userResp = await fetch('https://discord.com/api/v10/users/@me', { headers });
     if (!userResp.ok) throw new Error('Impossible de lire le profil Discord.');
     const user = await userResp.json();
-    const member = memberResp.ok ? await memberResp.json() : null;
-    const isStaff = await isAuthorizedStaff(user.id, member);
+    const access = await resolveAccess(user.id);
+    const isStaff = access.permissions.length > 0;
     req.session.user = {
       id: user.id,
       username: user.global_name || user.username,
@@ -1019,12 +1002,18 @@ app.get('/auth/discord/callback', async (req, res) => {
     console.error('[STORM WEB] OAuth:', err);
     res.status(500).send('Erreur pendant la connexion Discord. Vérifie PUBLIC_URL et le Redirect URI dans le Developer Portal.');
   }
-});
+}));
 
 app.post('/auth/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
-app.get('/api/me', (req, res) => res.json({ user: req.session?.user || null, oauthReady: oauthReady() }));
+app.get('/api/me', asyncRoute(async (req, res) => {
+  try {
+    const user = req.session?.user;
+    const access = user ? await resolveAccess(user.id) : { permissions: [], owner: false };
+    res.json({ user: user ? { ...user, isStaff: access.permissions.length > 0, permissions: access.permissions, owner: access.owner } : null, oauthReady: oauthReady() });
+  } catch (_) { res.status(503).json({ error: 'Discord indisponible : accès impossible à vérifier.' }); }
+}));
 
-app.get('/api/public', async (req, res) => {
+app.get('/api/public', asyncRoute(async (req, res) => {
   let server = { mode: state.siteConfig.development ? 'development' : 'offline', online: false };
   if (!state.siteConfig.development && FIVEM_STATUS_URL) {
     try {
@@ -1039,33 +1028,34 @@ app.get('/api/public', async (req, res) => {
     name: 'STØRM PVP',
     discordInvite: DISCORD_INVITE_URL,
     server,
+    patchNotes: (state.patchNotes || []).slice(0, 10),
     announcements: state.announcements.slice(0, 8).map(a => ({ id: a.id, title: a.title, message: a.message, image: a.image, createdAt: a.createdAt, author: a.author }))
   });
-});
+}));
 
-app.get('/api/admin/summary', requireStaff, async (req, res) => {
+app.get('/api/admin/summary', requireStaff, asyncRoute(async (req, res) => {
   const openTickets = Object.values(state.tickets).filter(t => t.status === 'open').length;
   const openAppeals = Object.values(state.appeals).filter(a => ['open','waiting_info'].includes(a.status)).length;
   const activeGiveaways = Object.values(state.giveaways).filter(g => !g.ended).length;
-  res.json({ openTickets, openAppeals, activeGiveaways, announcements: state.announcements.length, development: Boolean(state.siteConfig.development) });
-});
+  res.json({ botReady: client.isReady(), openTickets, openAppeals, activeGiveaways, announcements: state.announcements.length, development: Boolean(state.siteConfig.development) });
+}));
 
-app.get('/api/admin/channels', requireStaff, async (req, res) => {
+app.get('/api/admin/channels', requireStaff, asyncRoute(async (req, res) => {
   try {
     const guild = await client.guilds.fetch(GUILD_ID);
     const channels = await guild.channels.fetch();
     const rows = [...channels.values()].filter(c => c && c.type === ChannelType.GuildText).map(c => ({ id: c.id, name: c.name })).sort((a,b) => a.name.localeCompare(b.name));
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Impossible de charger les salons Discord.' }); }
-});
+}));
 
-app.get('/api/admin/dossiers', requireStaff, async (req, res) => {
+app.get('/api/admin/dossiers', requireStaff, asyncRoute(async (req, res) => {
   const list = [];
   for (const [channelId, t] of Object.entries(state.tickets)) list.push({ channelId, kind: 'ticket', ...t });
   for (const [channelId, a] of Object.entries(state.appeals)) list.push({ channelId, kind: 'appeal', ...a });
   list.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
   res.json(list.map(d => ({ channelId: d.channelId, kind: d.kind, id: d.id, userId: d.userId, type: d.type || 'ban_appeal', status: d.status, createdAt: d.createdAt, closedAt: d.closedAt || null, history: d.history || [] })));
-});
+}));
 
 app.get('/api/admin/dossiers/:channelId', requireStaff, (req, res) => {
   const d = dossierByChannelId(req.params.channelId);
@@ -1073,7 +1063,7 @@ app.get('/api/admin/dossiers/:channelId', requireStaff, (req, res) => {
   res.json({ channelId: req.params.channelId, kind: dossierKind(req.params.channelId), ...d, history: d.history || [] });
 });
 
-app.post('/api/admin/dossiers/:channelId/reply', requireStaff, async (req, res) => {
+app.post('/api/admin/dossiers/:channelId/reply', requireStaff, asyncRoute(async (req, res) => {
   const d = dossierByChannelId(req.params.channelId);
   if (!d) return res.status(404).json({ error: 'Dossier introuvable.' });
   const isOpen = state.tickets[req.params.channelId] ? d.status === 'open' : ['open','waiting_info'].includes(d.status);
@@ -1089,9 +1079,9 @@ app.post('/api/admin/dossiers/:channelId/reply', requireStaff, async (req, res) 
   const ch = await client.channels.fetch(req.params.channelId).catch(() => null);
   if (ch?.isTextBased()) await ch.send({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: `${staffName} • PANEL WEB` }).setDescription(text).setFooter({ text: `${d.id} • envoyé en DM depuis le site` }).setTimestamp()] });
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/admin/dossiers/:channelId/close', requireStaff, async (req, res) => {
+app.post('/api/admin/dossiers/:channelId/close', requireStaff, asyncRoute(async (req, res) => {
   const d = dossierByChannelId(req.params.channelId);
   if (!d) return res.status(404).json({ error: 'Dossier introuvable.' });
   d.status = 'closed';
@@ -1104,9 +1094,9 @@ app.post('/api/admin/dossiers/:channelId/close', requireStaff, async (req, res) 
   const ch = await client.channels.fetch(req.params.channelId).catch(() => null);
   if (ch?.isTextBased()) await ch.send({ embeds: [stormEmbed('🔒 Clôturé depuis le panel web', `Par **${req.session.user.username}**.`)] }).catch(() => {});
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/admin/appeals/:channelId/decision', requireStaff, async (req, res) => {
+app.post('/api/admin/appeals/:channelId/decision', requireStaff, asyncRoute(async (req, res) => {
   const a = state.appeals[req.params.channelId];
   if (!a) return res.status(404).json({ error: 'Contestation introuvable.' });
   const action = req.body.action === 'accept' ? 'accept' : 'refuse';
@@ -1124,59 +1114,59 @@ app.post('/api/admin/appeals/:channelId/decision', requireStaff, async (req, res
   const ch = await client.channels.fetch(req.params.channelId).catch(() => null);
   if (ch?.isTextBased()) await ch.send({ embeds: [stormEmbed(title, `Décision depuis le panel web par **${req.session.user.username}**.\n\n${reason}`)] }).catch(() => {});
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/admin/announcements', requireStaff, async (req, res) => {
-  const channelId = cleanText(req.body.channelId, 30);
+app.post('/api/admin/announcements', requireStaff, asyncRoute(async (req, res) => {
+  const channelId = CHANNELS.announcements;
   const title = cleanText(req.body.title, 200);
   const message = cleanText(req.body.message, 3500);
   const image = cleanText(req.body.image, 1000);
   const pingEveryone = Boolean(req.body.pingEveryone);
   if (!channelId || !title || !message) return res.status(400).json({ error: 'Salon, titre et message obligatoires.' });
   const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch?.isTextBased()) return res.status(404).json({ error: 'Salon Discord introuvable.' });
+  if (!ch?.isTextBased() || ch.guildId !== GUILD_ID) return res.status(404).json({ error: 'Salon Discord introuvable.' });
   const embed = stormEmbed(`📢 ${title}`, message); if (image) embed.setImage(image);
   const sent = await ch.send({ content: pingEveryone ? '@everyone' : undefined, embeds: [embed], allowedMentions: pingEveryone ? { parse: ['everyone'] } : { parse: [] } });
   state.announcements.unshift({ id: sent.id, channelId, title, message, image, author: req.session.user.username, authorId: req.session.user.id, createdAt: Date.now() });
   state.announcements = state.announcements.slice(0, 100); saveState();
   res.json({ ok: true, id: sent.id });
-});
+}));
 
 app.get('/api/admin/announcements', requireStaff, (req, res) => res.json(state.announcements));
 
-app.post('/api/admin/giveaways', requireStaff, async (req, res) => {
-  const channelId = cleanText(req.body.channelId, 30);
+app.post('/api/admin/giveaways', requireStaff, asyncRoute(async (req, res) => {
+  const channelId = CHANNELS.giveaways;
   const duration = parseDuration(cleanText(req.body.duration, 20));
   const prize = cleanText(req.body.prize, 500);
-  const winners = Math.max(1, Math.min(10, Number(req.body.winners || 1)));
+  const winners = Number(req.body.winners || 1);
+  if (!Number.isInteger(winners) || winners < 1 || winners > 10) return res.status(400).json({ error: 'Choisis entre 1 et 10 gagnants.' });
   if (!channelId || !duration || !prize) return res.status(400).json({ error: 'Salon, durée valide et lot obligatoires.' });
   const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch?.isTextBased()) return res.status(404).json({ error: 'Salon introuvable.' });
+  if (!ch?.isTextBased() || ch.guildId !== GUILD_ID) return res.status(404).json({ error: 'Salon introuvable.' });
   const endAt = Date.now() + duration;
   const embed = stormEmbed('🎁 STORM GIVEAWAY', `**Lot :** ${prize}\n**Gagnant(s) :** ${winners}\n**Fin :** <t:${Math.floor(endAt/1000)}:R>\n\nRéagis avec 🎉 pour participer !`);
   const msg = await ch.send({ embeds: [embed] }); await msg.react('🎉');
   state.giveaways[msg.id] = { channelId, guildId: GUILD_ID, prize, winners, endAt, ended: false, createdBy: req.session.user.id }; saveState();
   res.json({ ok: true, id: msg.id });
-});
+}));
 
 app.get('/api/admin/giveaways', requireStaff, (req, res) => res.json(Object.entries(state.giveaways).map(([id,g]) => ({ id, ...g })).sort((a,b)=>(b.endAt||0)-(a.endAt||0))));
-app.post('/api/admin/giveaways/:id/reroll', requireStaff, async (req, res) => { const r = await endGiveaway(req.params.id, true); res.status(r.ok ? 200 : 400).json(r); });
+app.post('/api/admin/giveaways/:id/reroll', requireStaff, asyncRoute(async (req, res) => { const r = await endGiveaway(req.params.id, true); res.status(r.ok ? 200 : 400).json(r); }));
 
-app.post('/api/admin/streams', requireStaff, async (req, res) => {
+app.post('/api/admin/streams', requireStaff, asyncRoute(async (req, res) => {
   const channelId = cleanText(req.body.channelId, 30);
   const streamer = cleanText(req.body.streamer, 200);
   const url = cleanText(req.body.url, 1000);
   const message = cleanText(req.body.message || 'Le live vient de commencer. Rejoins-le maintenant !', 2000);
   const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch?.isTextBased() || !streamer || !url) return res.status(400).json({ error: 'Salon, streamer et URL obligatoires.' });
+  if (!ch?.isTextBased() || ch.guildId !== GUILD_ID || !streamer || !url) return res.status(400).json({ error: 'Salon, streamer et URL obligatoires.' });
   await ch.send({ content: '@everyone', embeds: [stormEmbed('🔴 STREAM EN DIRECT', `**${streamer}** est en live !\n\n${message}\n\n🔗 ${url}`)], allowedMentions: { parse: ['everyone'] } });
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/admin/site-status', requireStaff, (req, res) => {
-  state.siteConfig.development = Boolean(req.body.development);
-  saveState();
-  res.json({ ok: true, development: state.siteConfig.development });
+app.use('/api', (err, req, res, next) => {
+  console.error('[STORM API]', err.message);
+  if (!res.headersSent) res.status(502).json({ error: 'Action impossible. Vérifie les permissions du bot et la disponibilité Discord.' });
 });
 
 app.get('/health', (req, res) => res.json({ ok: true, botReady: client.isReady(), time: Date.now() }));

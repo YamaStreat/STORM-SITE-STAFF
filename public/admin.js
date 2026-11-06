@@ -4,8 +4,15 @@ const esc = (s) => String(s || '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':
 let current = null;
 let dossiers = [];
 let lastSelectedId = null;
+let permissions = [];
+let panelInfo = {};
+let accessData = null;
+const actionLabels = { ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire', untimeout: 'Retirer le mute', warn: 'Avertir' };
+const tabPermissions = { tickets: 'tickets', annonces: 'announcements', giveaways: 'giveaways', streams: 'streams', settings: 'settings', patchNotes: 'patchNotes', access: 'access' };
+const can = p => permissions.includes(p);
+const canModerate = () => ['ban', 'unban', 'kick', 'timeout', 'warn'].some(can);
 
-const tabTitles = { dashboard:'Dashboard', tickets:'Tickets & contestations', annonces:'Annonces', giveaways:'Giveaways', streams:'Streams', settings:'Serveur FiveM' };
+const tabTitles = { dashboard:'Dashboard', tickets:'Tickets & contestations', annonces:'Annonces', giveaways:'Giveaways', streams:'Streams', settings:'Serveur FiveM', moderation:'Modération', patchNotes:'Patch notes', access:'Rôles & permissions' };
 
 function notice(msg, bad = false) {
   $('#globalNotice').innerHTML = `<div class="notice-v2 ${bad ? 'error' : ''}"><span>${bad ? '!' : '✓'}</span>${esc(msg)}</div>`;
@@ -23,11 +30,15 @@ async function api(url, opt = {}) {
 }
 
 function activateTab(tab) {
+  if ((tabPermissions[tab] && !can(tabPermissions[tab])) || (tab === 'moderation' && !canModerate())) return notice('Tu ne disposes pas de cette permission.', true);
   $$('.admin-menu button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   $$('.admin-panel').forEach((p) => p.classList.toggle('active', p.id === tab));
   $('#pageTitle').textContent = tabTitles[tab] || 'STØRM SYSTEM';
-  if (tab === 'tickets') loadDossiers();
-  if (tab === 'giveaways') loadGiveaways();
+  if (tab === 'tickets') loadDossiers().catch(e => notice(e.message, true));
+  if (tab === 'giveaways') loadGiveaways().catch(e => notice(e.message, true));
+  if (tab === 'access') loadAccess().catch(e => notice(e.message, true));
+  if (tab === 'patchNotes') loadPatches().catch(e => notice(e.message, true));
+  if (tab === 'moderation') loadModeration().catch(e => notice(e.message, true));
 }
 
 $$('.admin-menu button').forEach((b) => b.addEventListener('click', () => activateTab(b.dataset.tab)));
@@ -35,10 +46,11 @@ $$('[data-jump]').forEach((b) => b.addEventListener('click', () => activateTab(b
 
 async function boot() {
   const me = await api('/api/me');
-  if (!me.user?.isStaff) { location.href = '/auth/discord'; return; }
+  if (!me.user) { location.href = '/auth/discord'; return; }
+  if (!me.user.isStaff) { notice('Ton compte ne dispose pas d’un rôle autorisé. Contacte le propriétaire du serveur.', true); return; }
   $('#username').textContent = me.user.username;
   $('#avatar').src = me.user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
-  await Promise.all([summary(), channels(), loadDossiers(), loadGiveaways()]);
+  await refreshPanel();
 }
 
 async function summary() {
@@ -49,6 +61,9 @@ async function summary() {
   $('#sAnnouncements').textContent = d.announcements;
   $('#menuTicketCount').textContent = d.openTickets + d.openAppeals;
   $('#developmentMode').checked = d.development;
+  $('.welcome-badge small').textContent = d.botReady ? 'Discord connecté' : 'Connexion Discord en attente';
+  $('.system-mini small').textContent = d.botReady ? 'Bot connecté' : 'Bot en attente';
+  $('.server-card p').textContent = d.development ? 'Le serveur est en cours de développement. Le site affiche ce statut aux joueurs.' : 'Le statut public suit la disponibilité FiveM lorsque son URL est configurée.';
   const badge = $('#dashboardServerBadge');
   badge.textContent = d.development ? 'DÉVELOPPEMENT' : 'STATUT AUTOMATIQUE';
   badge.classList.toggle('active', !d.development);
@@ -94,6 +109,7 @@ function renderDossierList() {
 }
 
 async function loadDossiers() {
+  if (!can('tickets')) return;
   dossiers = await api('/api/admin/dossiers');
   renderDossierList();
   if (lastSelectedId && dossiers.some((d) => d.channelId === lastSelectedId) && current) {
@@ -187,13 +203,14 @@ function updateAnnouncementPreview() {
 
 $('#publishAnnouncement').onclick = async () => {
   try {
-    await api('/api/admin/announcements', { method:'POST', body:JSON.stringify({ channelId:$('#annChannel').value, title:$('#annTitle').value, message:$('#annMessage').value, image:$('#annImage').value, pingEveryone:$('#annEveryone').checked }) });
+    await api('/api/admin/announcements', { method:'POST', body:JSON.stringify({ title:$('#annTitle').value, message:$('#annMessage').value, image:$('#annImage').value, pingEveryone:$('#annEveryone').checked }) });
     notice('Annonce publiée sur Discord et le site ✓');
     $('#annTitle').value = ''; $('#annMessage').value = ''; $('#annImage').value = ''; $('#annEveryone').checked = false; updateAnnouncementPreview(); await summary();
   } catch (e) { notice(e.message, true); }
 };
 
 async function loadGiveaways() {
+  if (!can('giveaways')) return;
   const rows = await api('/api/admin/giveaways');
   $('#giveList').innerHTML = rows.length ? rows.map((g) => `<tr><td><b>${esc(g.prize)}</b></td><td>${new Date(g.endAt).toLocaleString('fr-FR')}</td><td><span class="status-chip ${g.ended ? 'closed' : 'open'}">${g.ended ? 'TERMINÉ' : 'ACTIF'}</span></td><td>${g.ended ? `<button class="btn btn-outline compact" data-reroll="${g.id}">Reroll</button>` : '<span class="muted">—</span>'}</td></tr>`).join('') : '<tr><td colspan="4"><div class="table-empty">Aucun giveaway.</div></td></tr>';
   $$('[data-reroll]').forEach((b) => b.onclick = async () => {
@@ -204,7 +221,7 @@ async function loadGiveaways() {
 
 $('#createGiveaway').onclick = async () => {
   try {
-    await api('/api/admin/giveaways', { method:'POST', body:JSON.stringify({ channelId:$('#giveChannel').value, prize:$('#givePrize').value, duration:$('#giveDuration').value, winners:$('#giveWinners').value }) });
+    await api('/api/admin/giveaways', { method:'POST', body:JSON.stringify({ prize:$('#givePrize').value, duration:$('#giveDuration').value, winners:$('#giveWinners').value }) });
     notice('Giveaway lancé ✓'); $('#givePrize').value = ''; $('#giveDuration').value = ''; await loadGiveaways(); await summary();
   } catch (e) { notice(e.message, true); }
 };
@@ -217,11 +234,11 @@ $('#publishStream').onclick = async () => {
 };
 
 $('#saveStatus').onclick = async () => {
-  try { await api('/api/admin/site-status', { method:'POST', body:JSON.stringify({development:$('#developmentMode').checked}) }); await summary(); notice('Statut public enregistré'); }
+  try { await api('/api/admin/site-status', { method:'POST', body:JSON.stringify({development:$('#developmentMode').checked}) }); await summary(); notice('Statut public et message Discord actualisés'); }
   catch (e) { notice(e.message, true); }
 };
 
-$('#manualRefresh').onclick = async () => { await Promise.all([summary(), loadDossiers(), loadGiveaways()]); notice('Panel actualisé'); };
+$('#manualRefresh').onclick = async () => { try { await refreshPanel(); notice('Panel actualisé'); } catch (e) { notice(e.message, true); } };
 $('#logout').onclick = async () => { await fetch('/auth/logout', {method:'POST'}); location.href = '/'; };
 
 setInterval(() => {
@@ -229,4 +246,106 @@ setInterval(() => {
   if ($('#tickets').classList.contains('active')) loadDossiers().catch(() => {});
 }, 10000);
 
-boot().catch((e) => console.error('[STORM ADMIN]', e));
+boot().catch((e) => notice(e.message, true));
+
+async function refreshPanel() {
+  panelInfo = await api('/api/admin/panel');
+  permissions = panelInfo.permissions;
+  $$('.admin-menu [data-tab], [data-jump]').forEach(button => {
+    const tab = button.dataset.tab || button.dataset.jump;
+    button.hidden = tab === 'moderation' ? !canModerate() : Boolean(tabPermissions[tab] && !can(tabPermissions[tab]));
+    button.title = tabTitles[tab] || tab;
+    button.setAttribute('aria-label', tabTitles[tab] || tab);
+  });
+  const selected = $('.admin-panel.active')?.id;
+  if ((tabPermissions[selected] && !can(tabPermissions[selected])) || (selected === 'moderation' && !canModerate())) activateTab('dashboard');
+  $('#modAction').innerHTML = Object.entries(actionLabels).filter(([key]) => can(key === 'untimeout' ? 'timeout' : key)).map(([key, label]) => `<option value="${key}">${label}</option>`).join('');
+  updateDuration();
+  $('#patchVersion').textContent = panelInfo.nextVersion;
+  updatePatchPreview();
+  await Promise.all([summary(), can('streams') ? channels() : null, loadDossiers(), loadGiveaways()]);
+}
+function updateDuration() { $('#durationField').hidden = $('#modAction').value !== 'timeout'; }
+$('#modAction').onchange = updateDuration;
+async function loadModeration() {
+  const rows = await api('/api/admin/moderation');
+  $('#moderationHistory').innerHTML = rows.length ? rows.map(row => `<tr><td>${esc(new Date(row.createdAt).toLocaleString('fr-FR'))}</td><td>${esc(row.userId)}</td><td>${esc(actionLabels[row.action])}${row.minutes ? ` · ${row.minutes} min` : ''}</td><td>${esc(row.reason)}</td><td>${esc(row.staff)}</td></tr>`).join('') : '<tr><td colspan="5">Aucune action enregistrée.</td></tr>';
+}
+$('#moderationForm').onsubmit = async event => {
+  event.preventDefault();
+  const action = $('#modAction').value;
+  const userId = $('#modUser').value.trim();
+  if (!confirm(`${actionLabels[action]} le membre ${userId} ?\n\nMotif : ${$('#modReason').value.trim()}`)) return;
+  const button = event.submitter; button.disabled = true;
+  try {
+    await api('/api/admin/moderation', { method: 'POST', body: JSON.stringify({ action, userId, reason: $('#modReason').value, minutes: $('#modMinutes').value }) });
+    notice('Action effectuée et enregistrée.'); $('#modReason').value = ''; await loadModeration();
+  } catch (e) { notice(e.message, true); } finally { button.disabled = false; }
+};
+const patchFields = { additions: 'patchAdditions', changes: 'patchChanges', fixes: 'patchFixes', optimizations: 'patchOptimizations' };
+const patchTitles = { additions: ':new:・AJOUTS', changes: ':arrows_counterclockwise:・MODIFICATIONS', fixes: ':bug:・CORRECTIONS', optimizations: ':gear:・OPTIMISATIONS' };
+function patchSections() { return Object.fromEntries(Object.entries(patchFields).map(([key, id]) => [key, $('#' + id).value])); }
+function updatePatchPreview() {
+  const date = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const blocks = Object.entries(patchSections()).map(([key, value]) => {
+    const lines = value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    return lines.length ? `### ${patchTitles[key]}\n${lines.map(x => `> ➜ ${x}`).join('\n')}` : '';
+  }).filter(Boolean);
+  const content = `# :clipboard:・PATCH NOTE — STØRM PVP\n\n:date: **Date :** \`${date}\`  \n:label: **Version :** \`${panelInfo.nextVersion || 'v1.0.0'}\`\n\n${blocks.join('\n\n')}\n\n**STØRM PVP ・ Development Team**`;
+  $('#patchPreview').textContent = content;
+  $('#patchLength').textContent = `${content.length} / 2 000 caractères · version +0.0.1 à chaque publication`;
+}
+Object.values(patchFields).forEach(id => $('#' + id).addEventListener('input', updatePatchPreview));
+async function loadPatches() {
+  const [info, rows] = await Promise.all([api('/api/admin/panel'), api('/api/admin/patch-notes')]);
+  panelInfo = info; $('#patchVersion').textContent = info.nextVersion; updatePatchPreview();
+  $('#patchHistory').innerHTML = rows.slice(0, 5).map(row => `<article class="admin-card"><span class="version-tag">${esc(row.version)}</span><p class="muted">${esc(new Date(row.createdAt).toLocaleString('fr-FR'))} · ${esc(row.author)}</p></article>`).join('');
+}
+$('#patchForm').onsubmit = async event => {
+  event.preventDefault();
+  if (!confirm(`Publier ${panelInfo.nextVersion} sur Discord et le site ?`)) return;
+  const button = event.submitter; button.disabled = true;
+  try {
+    const result = await api('/api/admin/patch-notes', { method: 'POST', body: JSON.stringify({ expectedVersion: panelInfo.nextVersion, sections: patchSections() }) });
+    Object.values(patchFields).forEach(id => $('#' + id).value = '');
+    notice(`Patch note ${result.version} publié.`); await loadPatches();
+  } catch (e) { notice(e.message, true); if (e.message.includes('version')) await loadPatches(); } finally { button.disabled = false; }
+};
+$('#publishDevelopment').onclick = async () => {
+  if (!confirm('Publier ou actualiser le message de statut Discord avec le statut actuellement enregistré ?')) return;
+  const button = $('#publishDevelopment'); button.disabled = true;
+  try { await api('/api/admin/development-message', { method: 'POST', body: '{}' }); notice('Message de statut Discord actualisé.'); }
+  catch (e) { notice(e.message, true); } finally { button.disabled = false; }
+};
+async function loadAccess() { accessData = await api('/api/admin/access'); renderAccess(); }
+function renderAccess() {
+  $('#accessRole').innerHTML = accessData.roles.filter(role => !Object.hasOwn(accessData.panelRoles, role.id)).map(role => `<option value="${role.id}">${esc(role.name)}</option>`).join('');
+  $('#accessMatrix').innerHTML = Object.entries(accessData.panelRoles).map(([id, selected]) => {
+    const role = accessData.roles.find(role => role.id === id);
+    return `<article class="role-card"><div class="role-heading"><b>${esc(role?.name || 'Rôle supprimé')} <small>${esc(id)}</small></b><button class="btn btn-ghost compact" data-remove-role="${esc(id)}">Retirer</button></div><div class="permission-grid">${Object.entries(accessData.permissionLabels).map(([key, label]) => `<label><input type="checkbox" data-role="${esc(id)}" data-permission="${key}" ${selected.includes(key) ? 'checked' : ''}> ${esc(label)}</label>`).join('')}</div></article>`;
+  }).join('') || '<p class="muted">Aucun rôle autorisé. Seul le propriétaire a accès au panel.</p>';
+  $$('[data-permission]').forEach(input => input.onchange = () => {
+    const selected = accessData.panelRoles[input.dataset.role];
+    accessData.panelRoles[input.dataset.role] = input.checked ? [...new Set([...selected, input.dataset.permission])] : selected.filter(x => x !== input.dataset.permission);
+  });
+  $$('[data-remove-role]').forEach(button => button.onclick = () => { delete accessData.panelRoles[button.dataset.removeRole]; renderAccess(); });
+}
+$('#addAccessRole').onclick = () => { const id = $('#accessRole').value; if (id) { accessData.panelRoles[id] = []; renderAccess(); } };
+$('#saveAccess').onclick = async () => {
+  if (!accessData || !confirm('Enregistrer ces accès ? Les nouveaux droits s’appliqueront immédiatement.')) return;
+  const button = $('#saveAccess'); button.disabled = true;
+  try { await api('/api/admin/access', { method: 'POST', body: JSON.stringify({ panelRoles: accessData.panelRoles }) }); notice('Permissions enregistrées.'); await refreshPanel(); }
+  catch (e) { notice(e.message, true); } finally { button.disabled = false; }
+};
+
+// Keep repeated clicks from publishing the same announcement or giveaway twice.
+['publishAnnouncement', 'createGiveaway', 'publishStream', 'saveStatus', 'manualRefresh'].forEach(id => {
+  const button = $('#' + id);
+  const action = button.onclick;
+  button.onclick = async event => {
+    if (button.disabled) return;
+    button.disabled = true;
+    try { await action(event); } catch (e) { notice(e.message, true); }
+    finally { button.disabled = false; }
+  };
+});

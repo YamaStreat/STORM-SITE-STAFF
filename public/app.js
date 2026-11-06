@@ -58,12 +58,20 @@ async function loadPublic() {
     const r = await fetch('/api/public', { cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
+    document.querySelector('#publicDevelopment').hidden = data.server?.mode !== 'development';
+    renderPatchNotes(data.patchNotes);
+    document.querySelector('#feedError')?.remove();
     setDiscordLinks(data.discordInvite);
     setServerStatus(data.server);
     renderAnnouncements(data.announcements);
   } catch (err) {
     console.error('[STORM SITE]', err);
-    setServerStatus({ mode: 'offline', online: false });
+    $('#serverStatus strong').textContent = 'STATUT INDISPONIBLE';
+    if (!$('#feedError')) {
+      const error = document.createElement('p'); error.id = 'feedError'; error.className = 'feed-error'; error.setAttribute('role', 'status');
+      error.textContent = 'Les dernières informations sont temporairement indisponibles. Une nouvelle tentative aura lieu automatiquement.';
+      $('#announcements').before(error);
+    }
   }
 }
 
@@ -75,3 +83,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDevMo
 
 loadPublic();
 setInterval(loadPublic, 30000);
+
+function renderPatchNotes(rows = []) {
+  const labels = { additions: '🆕 AJOUTS', changes: '🔄 MODIFICATIONS', fixes: '🐛 CORRECTIONS', optimizations: '⚙️ OPTIMISATIONS' };
+  $('#publicPatchNotes').innerHTML = rows.length ? rows.map(row => `<article class="patch-release"><header class="release-heading"><span class="version-tag">${esc(row.version)}</span><h3>STØRM PVP évolue</h3><time datetime="${esc(new Date(row.createdAt).toISOString())}">${esc(new Date(row.createdAt).toLocaleDateString('fr-FR', {timeZone: 'Europe/Paris'}))}</time></header><div class="release-sections">${Object.entries(labels).filter(([key]) => row.sections?.[key]?.length).map(([key, label]) => `<section><h4>${label}</h4><ul>${row.sections[key].map(line => `<li>${esc(line)}</li>`).join('')}</ul></section>`).join('')}</div></article>`).join('') : '<article class="admin-card"><span class="section-kicker">BIENTÔT</span><h3>Le début d’une nouvelle aventure.</h3><p class="muted">Les premiers patch notes seront publiés ici. Rejoins notre Discord pour suivre les avancées.</p></article>';
+}
