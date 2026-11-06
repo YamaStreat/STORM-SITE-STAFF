@@ -8,6 +8,7 @@ let permissions = [];
 let panelInfo = {};
 let accessData = null;
 let roleUpdates = {};
+let editedRoleId = null;
 const actionLabels = { ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire', untimeout: 'Retirer le mute', warn: 'Avertir' };
 const tabPermissions = { tickets: 'tickets', annonces: 'announcements', giveaways: 'giveaways', streams: 'streams', settings: 'settings', patchNotes: 'patchNotes', access: 'access' };
 const can = p => permissions.includes(p);
@@ -324,26 +325,42 @@ async function loadAccess() {
 }
 function renderAccess() {
   $('#accessRole').innerHTML = accessData.roles.filter(role => !Object.hasOwn(accessData.panelRoles, role.id)).map(role => `<option value="${role.id}">${esc(role.name)}</option>`).join('');
-  $('#accessMatrix').innerHTML = Object.entries(accessData.panelRoles).map(([id, selected]) => {
+  const configuredIds = Object.keys(accessData.panelRoles);
+  if (!configuredIds.includes(editedRoleId)) editedRoleId = configuredIds[0] || null;
+  $('#configuredRole').innerHTML = configuredIds.map(id => `<option value="${esc(id)}">${esc(accessData.roles.find(role => role.id === id)?.name || 'Rôle supprimé')} · ${esc(id)}</option>`).join('');
+  $('#configuredRole').value = editedRoleId || '';
+  $('#accessMatrix').innerHTML = Object.entries(accessData.panelRoles).filter(([id]) => id === editedRoleId).map(([id, selected]) => {
     const role = accessData.roles.find(role => role.id === id);
-    return `<article class="role-card"><div class="role-heading"><b>${esc(role?.name || 'Rôle supprimé')} <small>${esc(id)}</small></b><button class="btn btn-ghost compact" data-remove-role="${esc(id)}">Retirer</button></div><div class="permission-grid">${Object.entries(accessData.permissionLabels).map(([key, label]) => `<label><input type="checkbox" data-role="${esc(id)}" data-permission="${key}" ${selected.includes(key) ? 'checked' : ''}> ${esc(label)}</label>`).join('')}</div></article>`;
+    return `<article class="role-card" data-editing-role="${esc(id)}"><div class="role-heading"><b>${esc(role?.name || 'Rôle supprimé')} <small>${esc(id)}</small></b><div class="action-row"><button class="btn btn-primary compact" data-save-role="${esc(id)}">Enregistrer ce rôle</button><button class="btn btn-danger compact" data-remove-role="${esc(id)}">Retirer ce rôle</button></div></div><div class="permission-grid">${Object.entries(accessData.permissionLabels).map(([key, label]) => `<label><input type="checkbox" data-role="${esc(id)}" data-permission="${key}" ${selected.includes(key) ? 'checked' : ''}> ${esc(label)}</label>`).join('')}</div></article>`;
   }).join('') || '<p class="muted">Aucun rôle autorisé. Seul le propriétaire a accès au panel.</p>';
   $$('[data-permission]').forEach(input => input.onchange = () => {
-    const selected = accessData.panelRoles[input.dataset.role];
+    const id = input.closest('[data-editing-role]').dataset.editingRole;
+    const selected = accessData.panelRoles[id];
     const updated = input.checked ? [...new Set([...selected, input.dataset.permission])] : selected.filter(x => x !== input.dataset.permission);
-    accessData.panelRoles[input.dataset.role] = updated;
-    roleUpdates[input.dataset.role] = [...updated];
+    accessData.panelRoles[id] = [...updated];
+    roleUpdates[id] = [...updated];
   });
-  $$('[data-remove-role]').forEach(button => button.onclick = () => { delete accessData.panelRoles[button.dataset.removeRole]; roleUpdates[button.dataset.removeRole] = null; renderAccess(); });
+  $$('[data-save-role]').forEach(button => button.onclick = () => saveOneRole(button.dataset.saveRole, false, button));
+  $$('[data-remove-role]').forEach(button => button.onclick = () => saveOneRole(button.dataset.removeRole, true, button));
 }
-$('#addAccessRole').onclick = () => { const id = $('#accessRole').value; if (id) { accessData.panelRoles[id] = []; roleUpdates[id] = []; renderAccess(); } };
-$('#saveAccess').onclick = async () => {
-  if (!accessData || !Object.keys(roleUpdates).length) return notice('Aucune modification à enregistrer.');
-  if (!confirm('Enregistrer les permissions des rôles modifiés uniquement ?')) return;
-  const button = $('#saveAccess'); button.disabled = true;
-  try { await api('/api/admin/access', { method: 'POST', body: JSON.stringify({ roleUpdates }) }); roleUpdates = {}; accessData = null; notice('Permissions des rôles modifiés enregistrées.'); await refreshPanel(); if (can('access')) await loadAccess(); }
-  catch (e) { notice(e.message, true); } finally { button.disabled = false; }
-};
+$('#addAccessRole').onclick = () => { const id = $('#accessRole').value; if (id) { accessData.panelRoles[id] = []; roleUpdates[id] = []; editedRoleId = id; renderAccess(); } };
+$('#configuredRole').onchange = event => { editedRoleId = event.target.value; renderAccess(); };
+async function saveOneRole(id, remove, button) {
+  const role = accessData.roles.find(role => role.id === id);
+  const name = role?.name || id;
+  if (!confirm(`${remove ? 'Retirer uniquement' : 'Enregistrer uniquement'} le rôle « ${name} » (${id}) ? Les autres rôles resteront inchangés.`)) return;
+  const card = button.closest('.role-card');
+  card.querySelectorAll('input,button').forEach(element => element.disabled = true);
+  try {
+    await api('/api/admin/access/' + encodeURIComponent(id), { method: 'POST', body: JSON.stringify(remove ? {remove: true} : {permissions: [...accessData.panelRoles[id]]}) });
+    delete roleUpdates[id];
+    if (remove) delete accessData.panelRoles[id];
+    notice(`Rôle « ${name} » ${remove ? 'retiré' : 'enregistré'}. Les autres rôles sont inchangés.`);
+    renderAccess();
+    await refreshPanel();
+  } catch (e) { notice(e.message, true); }
+  finally { card.querySelectorAll('input,button').forEach(element => element.disabled = false); }
+}
 
 // Keep repeated clicks from publishing the same announcement or giveaway twice.
 ['publishAnnouncement', 'createGiveaway', 'publishStream', 'saveStatus', 'manualRefresh'].forEach(id => {

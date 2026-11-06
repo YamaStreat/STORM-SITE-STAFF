@@ -196,12 +196,12 @@ Nouveau contenu ajouté"></textarea></div>
         <div class="admin-card form-card">
           <div class="action-row"><select class="select" id="accessRole" aria-label="Choisir un rôle Discord"></select><button class="btn btn-outline" id="addAccessRole">Ajouter un rôle</button></div>
           <p class="muted">Coche les droits accordés à chaque rôle. Seuls les rôles modifiés seront enregistrés ; les autres conservent leurs permissions. Retirer un rôle coupe son accès au panel. Le droit « Configurer les accès staff » permet d’accorder tous les droits : réserve-le aux responsables.</p>
-          <div id="accessMatrix" class="access-matrix"></div>
-          <button class="btn btn-primary" id="saveAccess">Enregistrer les permissions</button>
+          <div class="field"><label for="configuredRole">Rôle à modifier · un seul rôle à la fois</label><select class="select" id="configuredRole"></select></div><div id="accessMatrix" class="access-matrix"></div>
+          <p class="muted">ACCÈS V3 · Chaque rôle possède son propre bouton « Enregistrer ce rôle ». Retirer un rôle ne modifie aucun autre rôle.</p>
         </div>
       </section>
     </main>
   </div>
-  <script src="./admin.js"></script>
+  <script src="./admin.js?v=access-v3"></script>
 </body>
 </html>

@@ -944,6 +944,10 @@ app.use(session({
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax', secure: PUBLIC_URL.startsWith('https://'), maxAge: 1000 * 60 * 60 * 12 }
 }));
+app.use((req, res, next) => {
+  if (['/admin.html', '/admin.js'].includes(req.path)) res.set('Cache-Control', 'no-store');
+  next();
+});
 app.use(express.static(path.join(ROOT, 'public')));
 
 function oauthReady() { return Boolean(DISCORD_CLIENT_SECRET && PUBLIC_URL); }

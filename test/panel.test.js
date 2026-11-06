@@ -28,6 +28,11 @@ async function withServer(fn) {
   await new Promise(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
   const request = async (path, body, user = ID.staff, origin) => {
+    // Convenience for tests editing exactly one role through the dedicated route.
+    if (path === 'access' && body?.roleUpdates && Object.keys(body.roleUpdates).length === 1) {
+      const [id, permissions] = Object.entries(body.roleUpdates)[0];
+      path += '/' + id; body = permissions === null ? {remove:true} : {permissions};
+    }
     const response = await fetch(url + '/api/admin/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { ...(user ? {'x-test-user': user} : {}), ...(body === undefined ? {} : {'content-type':'application/json'}), ...(origin ? {origin} : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, body: await response.json() };
   };
@@ -160,4 +165,13 @@ test('outdated clients cannot replace the entire role matrix', async () => withS
   const before = structuredClone(f.config.panelRoles);
   assert.equal((await request('access', {panelRoles:{}})).status, 409);
   assert.deepEqual(f.config.panelRoles, before);
+}));
+test('role-specific endpoint cannot modify another role passed in the payload', async () => withServer(async (f, request) => {
+  const other = '777777777777777777';
+  f.config.panelRoles[other] = ['ban','tickets'];
+  assert.equal((await request('access/' + ID.role, {permissions:['access','warn'],roleUpdates:{[other]:null}})).status, 200);
+  assert.deepEqual(f.config.panelRoles[other], ['ban','tickets']);
+  assert.deepEqual(f.config.panelRoles[ID.role], ['access','warn']);
+  assert.equal((await request('access', {roleUpdates:{[ID.role]:null,[other]:null}})).status, 409);
+  assert.deepEqual(f.config.panelRoles[other], ['ban','tickets']);
 }));

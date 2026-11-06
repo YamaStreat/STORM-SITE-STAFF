@@ -82,3 +82,9 @@ node --test test/*.test.js
 ```
 
 Les tests utilisent un client Discord simulé et des requêtes HTTP locales : aucun vrai message, aucune sanction, aucune modification des données de production. Le bot réel exige toujours les variables documentées plus haut. `PUBLIC_URL` doit correspondre à l’origine du navigateur et au callback OAuth pour les opérations du panel.
+
+### Éditeur de rôles ACCÈS V3
+
+Dans Accès & rôles, sélectionner le rôle dans « Rôle à modifier ». Un seul rôle est affiché à la fois. Chaque rôle possède ses propres boutons « Enregistrer ce rôle » et « Retirer ce rôle ». Ces boutons envoient une requête dédiée à son identifiant ; les requêtes groupées sont refusées. Les cases des autres rôles ne sont pas modifiées. Le retrait concerne uniquement l’accès au panel, pas la suppression du rôle sur Discord.
+
+Après déploiement, le texte « ACCES V3 » doit être visible sous l’éditeur. Les fichiers admin ne sont plus mis en cache par l’application et le script possède une URL versionnée.

@@ -63,7 +63,7 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
     return channel;
   }
   app.get('/api/admin/panel', requireStaff, route(async (req, res) => {
-    res.json({ channels: CHANNELS, permissions: req.staff.permissions, permissionLabels: PERMISSIONS, nextVersion: nextVersion(state.patchNotes?.[0]?.version) });
+    res.json({ channels: CHANNELS, permissions: req.staff.permissions, permissionLabels: PERMISSIONS, nextVersion: nextVersion(state.patchNotes?.[0]?.version), accessMode: 'per-role-v3' });
   }));
   const configuredRoles = () => {
     const config = getConfig();
@@ -74,10 +74,10 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
     const panelRoles = configuredRoles();
     res.json({ roles: [...roles.values()].filter(r => r.id !== guildId && !r.managed).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor })), panelRoles, permissionLabels: PERMISSIONS });
   }));
-  app.post('/api/admin/access', requireStaff, route(async (req, res) => {
+  const updateRole = route(async (req, res) => {
     if (Object.hasOwn(req.body, 'panelRoles')) fail(409, 'Recharge le panel avec Ctrl+F5 avant de modifier les permissions.');
     const entries = req.body.roleUpdates;
-    if (!entries || typeof entries !== 'object' || Array.isArray(entries) || Object.keys(entries).length > 100) fail(400, 'Configuration des rôles invalide.');
+    if (!entries || typeof entries !== 'object' || Array.isArray(entries) || Object.keys(entries).length !== 1) fail(400, 'Configuration des rôles invalide.');
     const roles = await req.staff.guild.roles.fetch();
     // Merge only edited role IDs; a stale browser must never overwrite other roles.
     const clean = Object.fromEntries(Object.entries(configuredRoles()).map(([id, permissions]) => [id, [...permissions]]));
@@ -91,8 +91,15 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
     if (Object.keys(clean).length > 100) fail(400, 'Maximum 100 rôles configurés.');
     getConfig().panelRoles = clean;
     saveConfig();
-    res.json({ ok: true });
-  }));
+    res.json({ ok: true, roleId: Object.keys(entries)[0] });
+  });
+  app.post('/api/admin/access/:roleId', requireStaff, (req, res, next) => {
+    const permissions = req.body.remove === true ? null : req.body.permissions;
+    req.body = { roleUpdates: { [req.params.roleId]: permissions } };
+    updateRole(req, res, next);
+  });
+  // Old browsers must reload; batch replacement is no longer accepted.
+  app.post('/api/admin/access', requireStaff, (req, res) => res.status(409).json({ error: 'Recharge le panel avec Ctrl+F5 : les rôles se sauvegardent individuellement.' }));
   let publishingPatch = false;
   app.get('/api/admin/patch-notes', requireStaff, route(async (req, res) => res.json(state.patchNotes || [])));
   app.post('/api/admin/patch-notes', requireStaff, route(async (req, res) => {
