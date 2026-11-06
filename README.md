@@ -102,3 +102,43 @@ Pour déployer cette page, transférer les dossiers `src/` et `public/` complets
 Le panel reprend les logos de `public/branding.json`, avec priorité aux copies locales déjà téléchargées. Le logo horizontal apparaît dans la navigation ; le logo rond apparaît dans le dashboard et la carte de statut. `public/admin-theme.css` contient le thème bleu nuit et les adaptations mobiles, sans modifier le site public. `public/admin-branding.js` charge les logos et conserve une alternative textuelle si les images sont indisponibles.
 
 Le dashboard affiche le nom du staff, la connexion Discord, l’heure de dernière actualisation (Paris), les raccourcis autorisés et les cinq dernières annonces/patch notes accessibles selon ses permissions. Les autorisations et l’éditeur ACCÈS V3 restent inchangés. Transférer le dossier `public/` complet pour inclure les nouveaux fichiers de thème et de logos du panel.
+
+## Pages communautaires et nouveaux outils staff
+
+Les nouvelles pages publiques sont accessibles depuis l’accueil :
+
+| Page | Adresse |
+| --- | --- |
+| Suivi du développement | `/developpement` |
+| Règlement | `/reglement` |
+| Présentation et captures | `/serveur` |
+| Questions fréquentes | `/faq` |
+| Candidatures staff et suivi privé | `/candidatures` |
+
+Dans **Pages publiques**, l’équipe autorisée modifie les étapes et leur statut, les règles, la présentation, les particularités du serveur, la FAQ, les liens HTTPS des captures et l’ouverture des candidatures. Les textes initiaux sont des bases éditables. Aucune image de gameplay ni date d’ouverture n’a été inventée : ajouter les véritables captures et informations depuis cet écran. Une sauvegarde obsolète est refusée si un autre membre a publié un changement entre-temps.
+
+### Candidatures
+
+Une connexion Discord et l’appartenance au serveur sont nécessaires pour candidater. Le formulaire demande la motivation, l’expérience, les disponibilités et l’acceptation du règlement. Une candidature active par compte ; délai de 24 heures entre les envois. Les réponses sont visibles uniquement par les responsables disposant du droit **Étudier les candidatures staff**. Le candidat voit uniquement ses propres statuts et les retours qui lui sont adressés. Les décisions possibles sont « En cours d’étude », « Acceptée » et « Refusée » ; les décisions finales demandent un retour écrit. Accepter une candidature ne modifie pas automatiquement les rôles Discord.
+
+### Fiches membres, journal et statistiques
+
+**Fiches membres** recherche un pseudo (10 résultats maximum) ou un identifiant Discord. Le droit associé permet de lire les avertissements, les sanctions et les résumés des tickets/contestations. L’ouverture de la conversation elle-même exige toujours le droit Tickets. L’historique local d’un ancien membre reste consultable par son identifiant.
+
+**Journal** enregistre les écritures réussies du panel, y compris les modifications des accès, les décisions de recrutement, les pages, les brouillons, les sanctions et les publications. Les annonces et créations de giveaways depuis les commandes Discord sont également enregistrées. Il conserve les 5 000 dernières actions, avec recherche sur les 200 premières correspondances. Il commence au déploiement de cette version et ne reconstruit pas les anciennes actions. Les corps privés des formulaires et les secrets ne sont jamais copiés dans ce journal.
+
+**Statistiques** affiche les dossiers ouverts, ceux sans première réponse du staff, le délai moyen de première réponse, le délai moyen de clôture et les ouvertures/clôtures par jour sur 7 ou 30 jours (Paris). Les messages du bot ne comptent pas comme réponses du staff. Les moyennes affichent leur nombre de dossiers mesurés ; sans mesure disponible, elles restent indiquées comme absentes. Les anciens dossiers sans horodatage exploitable ne produisent pas de délai inventé.
+
+### Brouillons et validation
+
+Les éditeurs Annonces et Patch notes permettent d’enregistrer un brouillon. Le cycle est : brouillon → soumission → validation par un responsable → publication. Les corrections demandées renvoient le contenu en brouillon. Une modification d’un contenu validé retire sa validation ; les versions obsolètes sont refusées. Un auteur ne peut pas valider son propre contenu, sauf le propriétaire. Une publication utilise le contenu enregistré et validé, et ne peut être republiée depuis le même brouillon. Les mentions de rôle et les salons précédemment configurés sont conservés.
+
+Pour les annonces et patch notes du panel, les rédacteurs sans droit de validation passent par ce cycle. Le propriétaire et les responsables disposant de **Valider les publications** peuvent publier directement, s’ils disposent aussi de la permission de publication correspondante. Ce cycle ne change pas les autorisations natives des commandes Discord.
+
+Le propriétaire attribue les nouveaux droits dans **Accès & rôles** : pages publiques, candidatures, fiches membres, journal, statistiques, rédaction et validation des brouillons. Les rôles déjà configurés explicitement ne reçoivent pas automatiquement ces droits supplémentaires.
+
+### Déploiement et données
+
+Transférer les dossiers `src/` et `public/` complets, puis redémarrer et recharger le navigateur. Aucune nouvelle dépendance n’est nécessaire. Garder `.env`, `data/` et les logos locaux. Les nouvelles données sont ajoutées à `data/state.json` sans supprimer les tickets, annonces ou sanctions existants. Sauvegarder ce dossier régulièrement, notamment avant une mise à jour.
+
+Les candidatures, contenus éditoriaux et brouillons ne sont pas purgés automatiquement ; les limites sont respectivement 2 000 candidatures et 1 000 brouillons, avec refus d’un nouvel enregistrement au-delà plutôt que suppression silencieuse. Ces limites conviennent à un petit serveur ; prévoir un stockage dédié et une politique d’archivage pour un usage plus important.

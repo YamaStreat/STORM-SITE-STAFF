@@ -6,6 +6,7 @@ const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 const { installPanel, CHANNELS, NOTIFY_ROLES } = require('./panel');
+const { auditEvent } = require('./community');
 const { cacheBrandAssets } = require('./branding');
 const {
   Client,
@@ -712,6 +713,7 @@ async function startGiveaway(interaction) {
 
   state.giveaways[msg.id] = { channelId: channel.id, guildId: interaction.guildId, prize, winners, endAt, ended: false };
   saveState();
+  auditEvent(state, interaction.user, 'POST giveaways', `discord/${channel.id}/${msg.id}`, saveState, 'discord');
   await interaction.reply({ content: `✅ Giveaway lancé dans ${channel}.`, ephemeral: true });
 }
 
@@ -826,6 +828,7 @@ client.on(Events.InteractionCreate, async interaction => {
         state.announcements.unshift({ id: sentMessage.id, channelId: channel.id, title, message, image: image || '', author: interaction.user.username, authorId: interaction.user.id, createdAt: Date.now() });
         state.announcements = state.announcements.slice(0, 100);
         saveState();
+        auditEvent(state, interaction.user, 'POST announcements', `discord/${channel.id}/${sentMessage.id}`, saveState, 'discord');
         return interaction.reply({ content: `✅ Annonce envoyée dans ${channel}.`, ephemeral: true });
       }
 
@@ -964,20 +967,21 @@ app.get('/auth/discord', (req, res) => {
   if (!oauthReady()) return res.status(503).send('OAuth Discord non configuré. Ajoute DISCORD_CLIENT_SECRET et PUBLIC_URL dans .env.');
   const stateToken = crypto.randomBytes(18).toString('hex');
   req.session.oauthState = stateToken;
+  req.session.oauthNext = req.query.next === 'application' ? '/candidatures' : null;
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: oauthRedirectUri(),
     response_type: 'code',
     scope: 'identify guilds.members.read',
     state: stateToken,
-    prompt: 'none'
+    prompt: req.query.next === 'application' ? 'consent' : 'none'
   });
   res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
 });
 
 app.get('/auth/discord/callback', asyncRoute(async (req, res) => {
   try {
-    if (!req.query.code || req.query.state !== req.session.oauthState) return res.status(400).send('Connexion Discord invalide.');
+    if (!req.query.code || typeof req.query.state !== 'string' || !req.session.oauthState || req.query.state !== req.session.oauthState) return res.status(400).send('Connexion Discord invalide.');
     const body = new URLSearchParams({
       client_id: CLIENT_ID,
       client_secret: DISCORD_CLIENT_SECRET,
@@ -1003,7 +1007,9 @@ app.get('/auth/discord/callback', asyncRoute(async (req, res) => {
       isStaff
     };
     delete req.session.oauthState;
-    res.redirect(isStaff ? '/admin.html' : '/staff?denied=1');
+    const nextPage = req.session.oauthNext;
+    delete req.session.oauthNext;
+    res.redirect(nextPage === '/candidatures' ? nextPage : isStaff ? '/admin.html' : '/staff?denied=1');
   } catch (err) {
     console.error('[STORM WEB] OAuth:', err);
     res.status(500).send('Erreur pendant la connexion Discord. Vérifie PUBLIC_URL et le Redirect URI dans le Developer Portal.');

@@ -1,3 +1,4 @@
+const { installCommunity } = require('./community');
 const { PermissionFlagsBits, ChannelType } = require('discord.js');
 
 const CHANNELS = Object.freeze({ announcements: '1564691828312375449', giveaways: '1568295438610858024', development: '1564691848222613644', patchNotes: '1564739753222475807' });
@@ -5,6 +6,7 @@ const NOTIFY_ROLES = Object.freeze({ patchNotes: '1568307263695749201', giveaway
 const PERMISSIONS = Object.freeze({
   tickets: 'Gérer les tickets et contestations', announcements: 'Publier des annonces', giveaways: 'Gérer les giveaways', streams: 'Publier des streams',
   patchNotes: 'Publier des patch notes', settings: 'Gérer le statut du serveur', access: 'Configurer les accès staff',
+  content: 'Gérer les pages publiques', applications: 'Étudier les candidatures staff', members: 'Voir les fiches membres, sanctions et tickets', audit: 'Consulter le journal des actions', statistics: 'Consulter les statistiques de support', drafts: 'Rédiger des brouillons', approvePublications: 'Valider les publications',
   ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire / retirer le mute', warn: 'Avertir'
 });
 const SNOWFLAKE = /^\d{17,20}$/;
@@ -38,6 +40,7 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
   }
   const requireStaff = (req, res, next) => req.staff ? next() : res.status(401).json({ error: 'Connexion staff requise.' });
   app.use('/api/admin', wrap(async (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
     if (!req.session?.user?.id) return res.status(401).json({ error: 'Connexion staff requise.' });
     let access;
     try { access = await resolveAccess(req.session.user.id); }
@@ -49,7 +52,7 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
       if (req.headers.origin !== expected) return res.status(403).json({ error: 'Origine de la requête refusée.' });
     }
     const area = req.path.split('/')[1];
-    const permission = ({ dossiers: 'tickets', appeals: 'tickets', announcements: 'announcements', giveaways: 'giveaways', streams: 'streams', 'site-status': 'settings', 'development-message': 'settings', 'patch-notes': 'patchNotes', access: 'access' })[area];
+    const permission = ({ dossiers: 'tickets', appeals: 'tickets', announcements: 'announcements', giveaways: 'giveaways', streams: 'streams', 'site-status': 'settings', 'development-message': 'settings', 'patch-notes': 'patchNotes', access: 'access', content: 'content', applications: 'applications', members: 'members', audit: 'audit', statistics: 'statistics' })[area];
     if (permission && !access.permissions.includes(permission)) return res.status(403).json({ error: `Permission requise : ${PERMISSIONS[permission]}.` });
     next();
   }));
@@ -57,6 +60,7 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
     try { await fn(req, res); }
     catch (e) { console.error('[STORM PANEL]', e.message); res.status(e.status || 502).json({ error: e.status ? e.message : 'Discord refuse cette action. Vérifie les permissions et la hiérarchie des rôles du bot.' }); }
   });
+  installCommunity(app, { state, saveState, client, guildId, publicUrl, requireStaff, route });
   async function destination(guild, id) {
     const channel = await guild.channels.fetch(id);
     if (!channel || channel.guildId !== guildId || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) fail(404, 'Salon de publication introuvable dans ce serveur.');

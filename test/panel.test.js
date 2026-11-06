@@ -99,7 +99,8 @@ test('moderation executes all actions and persists successful audit entries', as
     assert.equal((await request('moderation', {action,userId:ID.target,reason:'Motif documenté',minutes:5})).status, 200);
   }
   assert.equal(f.calls[0][1], 300000); assert.equal(f.calls[1][1], null);
-  assert.equal(f.state.moderation.length, 6); assert.equal(f.writes(), 6);
+  assert.equal(f.state.moderation.length, 6); assert.equal(f.writes(), 12);
+  assert.equal(f.state.audit.length, 6);
   f.target.ban = async () => { throw new Error('Discord failure'); };
   assert.equal((await request('moderation', {action:'ban',userId:ID.target,reason:'Test'})).status, 502);
   assert.equal(f.state.moderation.length, 6);

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#030d24">
   <title>STØRM SYSTEM — Staff</title>
   <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./admin-theme.css?v=storm-1">
+  <link rel="stylesheet" href="./admin-theme.css?v=storm-1"><link rel="stylesheet" href="/community-admin.css?v=1">
 </head>
 <body class="admin-page">
   <div class="admin-layout-v2">
@@ -25,6 +25,12 @@
         <button data-tab="moderation"><span>⛨</span><b>Modération</b></button>
         <button data-tab="patchNotes"><span>≡</span><b>Patch notes</b></button>
         <button data-tab="access"><span>⌘</span><b>Accès & rôles</b></button>
+        <button data-tab="members"><span>◎</span><b>Fiches membres</b></button>
+        <button data-tab="applications"><span>↗</span><b>Candidatures</b></button>
+        <button data-tab="drafts"><span>▤</span><b>Brouillons</b></button>
+        <button data-tab="audit"><span>◷</span><b>Journal</b></button>
+        <button data-tab="statistics"><span>▥</span><b>Statistiques</b></button>
+        <button data-tab="content"><span>✎</span><b>Pages publiques</b></button>
         <button data-tab="settings"><span>⚙</span><b>Serveur</b></button>
       </nav>
       <div class="sidebar-bottom">
@@ -121,7 +127,7 @@
             <div class="field"><label>Message</label><textarea class="textarea" id="annMessage" placeholder="Écris ton annonce..."></textarea></div>
             <div class="field"><label>URL image <span>optionnel</span></label><input class="input" id="annImage" placeholder="https://..."></div>
             <label class="switch-row"><input type="checkbox" id="annEveryone"><span class="switch"></span><div><b>Mentionner @everyone</b><small>Discord notifiera tous les membres du salon.</small></div></label>
-            <button class="btn btn-primary full-btn" id="publishAnnouncement">Publier l'annonce</button>
+            <button type="button" class="btn btn-outline" id="saveAnnouncementDraft" hidden>Enregistrer un brouillon</button><button class="btn btn-primary full-btn" id="publishAnnouncement">Publier l'annonce</button>
           </div>
           <div class="preview-column">
             <span class="section-kicker">APERÇU SITE</span>
@@ -192,7 +198,7 @@ Nouveau contenu ajouté"></textarea></div>
             <div class="field"><label for="patchChanges">🔄 Modifications</label><textarea id="patchChanges" class="textarea short" placeholder="Modification d’un système existant"></textarea></div>
             <div class="field"><label for="patchFixes">🐛 Corrections</label><textarea id="patchFixes" class="textarea short" placeholder="Correction de bugs signalés"></textarea></div>
             <div class="field"><label for="patchOptimizations">⚙️ Optimisations</label><textarea id="patchOptimizations" class="textarea short" placeholder="Amélioration des performances"></textarea></div>
-            <button class="btn btn-primary" type="submit">Publier le patch note</button>
+            <button type="button" class="btn btn-outline" id="savePatchDraft" hidden>Enregistrer un brouillon</button><button class="btn btn-primary" type="submit" id="publishPatchButton">Publier le patch note</button>
           </form>
           <div><article class="admin-card"><span class="section-kicker">APERÇU DISCORD · DATE DE PARIS</span><pre class="patch-preview" id="patchPreview"></pre><small class="muted" id="patchLength"></small></article><div id="patchHistory" class="patch-history"></div></div>
         </div>
@@ -206,9 +212,16 @@ Nouveau contenu ajouté"></textarea></div>
           <p class="muted">ACCÈS V3 · Chaque rôle possède son propre bouton « Enregistrer ce rôle ». Retirer un rôle ne modifie aucun autre rôle.</p>
         </div>
       </section>
+
+      <section class="admin-panel" id="members"><div class="panel-head"><div><span class="section-kicker">COMMUNAUTÉ</span><h2>Fiches membres</h2><p>Recherche un pseudo Discord ou un identifiant pour retrouver les tickets et les sanctions enregistrés.</p></div></div><form id="memberSearchForm" class="feature-search"><input class="input" id="memberQuery" required minlength="2" maxlength="100" placeholder="Pseudo ou identifiant Discord" aria-label="Rechercher un membre"><button class="btn btn-primary">Rechercher</button></form><div id="memberResults" class="feature-results"></div><div id="memberDetail"></div></section>
+      <section class="admin-panel" id="applications"><div class="panel-head"><div><span class="section-kicker">RECRUTEMENT</span><h2>Candidatures staff</h2><p>Les décisions et les messages de retour sont visibles par le candidat dans son suivi privé.</p></div><select class="select compact-select" id="applicationFilter" aria-label="Filtrer les candidatures"><option value="all">Tous les statuts</option><option value="pending">En attente</option><option value="reviewing">En cours d’étude</option><option value="accepted">Acceptées</option><option value="rejected">Refusées</option></select></div><div id="applicationList"></div></section>
+      <section class="admin-panel" id="audit"><div class="panel-head"><div><span class="section-kicker">TRAÇABILITÉ</span><h2>Journal des actions</h2><p>Les actions réussies du panel, leur auteur et leur cible. Les réponses privées des formulaires ne sont pas copiées ici.</p></div></div><form id="auditSearchForm" class="feature-search"><input class="input" id="auditQuery" placeholder="Rechercher un staff, une action ou une cible" aria-label="Rechercher dans le journal"><button class="btn btn-outline">Rechercher</button></form><div class="admin-card table-scroll"><table class="table-v2"><thead><tr><th>Date</th><th>Staff</th><th>Action</th><th>Cible</th></tr></thead><tbody id="auditList"></tbody></table></div></section>
+      <section class="admin-panel" id="statistics"><div class="panel-head"><div><span class="section-kicker">QUALITÉ DU SUPPORT</span><h2>Statistiques</h2><p>Tickets et contestations, à partir de l’historique réellement enregistré.</p></div><select class="select compact-select" id="statisticsDays" aria-label="Période des statistiques"><option value="30">30 derniers jours</option><option value="7">7 derniers jours</option></select></div><div id="statisticsCards" class="feature-stats"></div><div class="admin-card"><h3>Ouvertures et clôtures</h3><p class="muted">Bleu : dossiers ouverts · Vert : dossiers clôturés · Jours de Paris</p><div id="supportChart" class="support-chart"></div></div></section>
+      <section class="admin-panel" id="drafts"><div class="panel-head"><div><span class="section-kicker">PRÉPARER · RELIRE · PUBLIER</span><h2>Brouillons & validation</h2><p>Crée un brouillon depuis Annonces ou Patch notes. Soumets-le à un responsable avant publication. Modifier un contenu validé demande une nouvelle validation.</p></div><button class="btn btn-outline" id="refreshDrafts">Actualiser</button></div><div id="draftList"></div></section>
+      <section class="admin-panel" id="content"><div class="panel-head"><div><span class="section-kicker">LE SITE PUBLIC</span><h2>Pages & développement</h2><p>Gère les étapes du projet, le règlement, la présentation du serveur, la FAQ et l’ouverture des candidatures.</p></div><a class="btn btn-outline" href="/developpement" target="_blank" rel="noopener">Voir le site ↗</a></div><form id="contentForm"><div id="contentEditor"></div><button class="btn btn-primary" type="submit">Publier les modifications du site</button></form></section>
     </main>
   </div>
   <script src="./admin-branding.js?v=storm-1"></script>
-  <script src="./admin.js?v=storm-panel-1"></script>
+  <script src="./admin.js?v=community-1"></script><script src="/community-admin.js?v=1"></script>
 </body>
 </html>

@@ -1,0 +1,86 @@
+let recruitmentRows=[];
+let publicationRows=[];
+let editingPublication=null;
+let publicContent=null;
+let publicContentRevision=0;
+const recruitmentLabels={pending:'En attente',reviewing:'En cours d’étude',accepted:'Acceptée',rejected:'Refusée'};
+const draftLabels={draft:'Brouillon',pending:'À valider',approved:'Validé',published:'Publié'};
+const dateTime=value=>new Date(value).toLocaleString('fr-FR',{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const empty=text=>`<div class="feature-empty">${esc(text)}</div>`;
+async function busy(button,action){button.disabled=true;try{await action();}catch(e){notice(e.message,true);}finally{button.disabled=false;}}
+function loadFeatureTab(tab){const loaders={members:()=>Promise.resolve(),applications:loadRecruitment,audit:loadAudit,statistics:loadStatistics,drafts:loadDrafts,content:loadContent};if(loaders[tab])loaders[tab]().catch(e=>notice(e.message,true));}
+function updateFeaturePermissions(){
+ $('#saveAnnouncementDraft').hidden=!can('drafts')||!can('announcements');$('#savePatchDraft').hidden=!can('drafts')||!can('patchNotes');
+ $('#publishAnnouncement').hidden=!staffOwner&&!can('approvePublications');$('#publishPatchButton').hidden=!staffOwner&&!can('approvePublications');
+}
+$('#memberSearchForm').onsubmit=event=>{event.preventDefault();busy(event.submitter,async()=>{
+ const rows=await api('/api/admin/members?q='+encodeURIComponent($('#memberQuery').value.trim()));
+ $('#memberResults').innerHTML=rows.length?rows.map(row=>`<button class="member-result" data-member="${esc(row.id)}"><b>${esc(row.username)}</b><small>${esc(row.id)}</small><span>Ouvrir la fiche ↗</span></button>`).join(''):empty('Aucun membre trouvé. Essaie son identifiant Discord.');
+ $('#memberDetail').innerHTML='';$$('[data-member]').forEach(button=>button.onclick=()=>busy(button,()=>loadMember(button.dataset.member)));
+});};
+async function loadMember(id){const row=await api('/api/admin/members/'+encodeURIComponent(id));
+ $('#memberDetail').innerHTML=`<article class="admin-card member-profile"><span class="section-kicker">FICHE MEMBRE</span><h2>${esc(row.username)}</h2><p>${esc(row.id)}${row.joinedAt?' · A rejoint le '+esc(dateTime(row.joinedAt)):''}</p><div class="role-tags">${row.roles.map(role=>`<span>${esc(role.name)}</span>`).join('')}</div></article><article class="admin-card feature-block"><h3>Tickets & contestations (${row.tickets.length})</h3>${row.tickets.length?row.tickets.map(ticket=>`<div class="member-ticket"><b>${esc(ticket.id)}</b><span>${esc(statusLabel(ticket.status))}</span><small>${esc(dateTime(ticket.createdAt))}</small>${can('tickets')?`<button class="btn btn-outline compact" data-open-ticket="${esc(ticket.channelId)}">Ouvrir</button>`:''}</div>`).join(''):empty('Aucun dossier enregistré.')}</article><article class="admin-card feature-block"><h3>Avertissements & sanctions (${row.moderation.length})</h3>${row.moderation.length?row.moderation.map(item=>`<div class="history-entry"><b>${esc(actionLabels[item.action]||item.action)}${item.minutes?' · '+item.minutes+' min':''}</b><p>${esc(item.reason)}</p><small>${esc(dateTime(item.createdAt))} · ${esc(item.staff)}</small></div>`).join(''):empty('Aucune sanction enregistrée.')}</article>`;
+ $$('[data-open-ticket]').forEach(button=>button.onclick=()=>{activateTab('tickets');selectDossier(button.dataset.openTicket).catch(e=>notice(e.message,true));});
+}
+async function loadRecruitment(){recruitmentRows=await api('/api/admin/applications');renderRecruitment();}
+function renderRecruitment(){const filter=$('#applicationFilter').value;const rows=recruitmentRows.filter(row=>filter==='all'||row.status===filter);
+ $('#applicationList').innerHTML=rows.length?rows.map(row=>`<article class="admin-card feature-block"><div class="feature-heading"><div><h3>${esc(row.username)}</h3><small>${esc(row.userId)} · ${esc(dateTime(row.createdAt))}</small></div><span class="version-tag">${recruitmentLabels[row.status]}</span></div><h4>Motivation</h4><p class="long-copy">${esc(row.motivation)}</p><h4>Expérience</h4><p class="long-copy">${esc(row.experience)}</p><h4>Disponibilités</h4><p class="long-copy">${esc(row.availability)}</p>${row.feedback?`<p class="review-feedback">Dernier retour : ${esc(row.feedback)}</p>`:''}<div class="field"><label for="feedback-${row.id}">Retour visible par le candidat</label><textarea class="textarea short" id="feedback-${row.id}" maxlength="1500">${esc(row.feedback||'')}</textarea></div><div class="action-row feature-actions"><button class="btn btn-outline" data-application="${row.id}" data-decision="reviewing">Prendre en charge</button><button class="btn btn-success" data-application="${row.id}" data-decision="accepted">Accepter</button><button class="btn btn-danger" data-application="${row.id}" data-decision="rejected">Refuser</button></div></article>`).join(''):empty('Aucune candidature pour ce filtre.');
+ $$('[data-application]').forEach(button=>button.onclick=()=>busy(button,async()=>{const row=recruitmentRows.find(row=>row.id===button.dataset.application);if(!confirm(`Confirmer « ${recruitmentLabels[button.dataset.decision]} » pour ${row.username} ?`))return;await api('/api/admin/applications/'+row.id,{method:'POST',body:JSON.stringify({revision:row.revision,status:button.dataset.decision,feedback:$('#feedback-'+row.id).value})});notice('Candidature mise à jour.');await loadRecruitment();}));
+}
+$('#applicationFilter').onchange=renderRecruitment;
+const auditLabels={access:'Accès aux rôles',moderation:'Modération',announcements:'Annonce',giveaways:'Giveaway',streams:'Stream','patch-notes':'Patch note','site-status':'Statut public','development-message':'Message de développement',dossiers:'Ticket',appeals:'Contestation',content:'Pages publiques',applications:'Candidature',drafts:'Brouillon'};
+async function loadAudit(){const rows=await api('/api/admin/audit?q='+encodeURIComponent($('#auditQuery').value));$('#auditList').innerHTML=rows.length?rows.map(row=>`<tr><td>${esc(dateTime(row.createdAt))}</td><td>${esc(row.actor)}<br><small>${esc(row.actorId)}</small></td><td>${esc(auditLabels[row.action.split(' ')[1]]||row.action)}<br><small>${esc(row.source)}</small></td><td>${esc(row.target)}</td></tr>`).join(''):'<tr><td colspan="4">Aucune action correspondante. Le journal commence avec cette mise à jour.</td></tr>';}
+$('#auditSearchForm').onsubmit=event=>{event.preventDefault();busy(event.submitter,loadAudit);};
+function durationLabel(ms){if(ms===null)return'Pas de données';if(ms<60000)return'< 1 min';if(ms<3600000)return Math.round(ms/60000)+' min';return(ms/3600000).toFixed(1)+' h';}
+async function loadStatistics(){const data=await api('/api/admin/statistics?days='+$('#statisticsDays').value);
+ const cards=[['Dossiers ouverts',data.open,'Tickets et contestations'],['Sans réponse staff',data.waiting,'Plus ancien : '+durationLabel(data.oldestWaitingMs||null)],['Première réponse',durationLabel(data.averageFirstReplyMs),`${data.firstReplySamples} dossier(s) mesuré(s)`],['Clôture moyenne',durationLabel(data.averageResolutionMs),`${data.resolutionSamples} dossier(s) mesuré(s)`]];
+ $('#statisticsCards').innerHTML=cards.map(([label,value,note])=>`<article class="admin-card"><small>${label}</small><strong>${esc(value)}</strong><p>${esc(note)}</p></article>`).join('');
+ const max=Math.max(1,...data.daily.map(row=>Math.max(row.opened,row.closed)));
+ $('#supportChart').innerHTML=data.daily.map(row=>`<div class="chart-day" aria-label="${row.date} : ${row.opened} ouverts, ${row.closed} clôturés"><div class="chart-bars"><span style="height:${row.opened/max*100}%" title="${row.opened} ouverts"></span><span style="height:${row.closed/max*100}%" title="${row.closed} clôturés"></span></div><small>${row.date.slice(8)}</small></div>`).join('');
+}
+$('#statisticsDays').onchange=()=>loadStatistics().catch(e=>notice(e.message,true));
+async function savePublicationDraft(kind,button){await busy(button,async()=>{
+ const payload=kind==='announcement'?{title:$('#annTitle').value,message:$('#annMessage').value,image:$('#annImage').value,pingEveryone:$('#annEveryone').checked}:{sections:patchSections()};
+ const context=editingPublication?.kind===kind?editingPublication:null;
+ await api('/api/admin/drafts'+(context?'/'+context.id:''),{method:'POST',body:JSON.stringify(context?{action:'edit',revision:context.revision,payload}:{kind,payload})});
+ editingPublication=null;notice('Brouillon enregistré. Tu peux le soumettre à validation.');activateTab('drafts');
+});}
+$('#saveAnnouncementDraft').onclick=()=>savePublicationDraft('announcement',$('#saveAnnouncementDraft'));
+$('#savePatchDraft').onclick=()=>savePublicationDraft('patchNote',$('#savePatchDraft'));
+async function loadDrafts(){publicationRows=await api('/api/admin/drafts');
+ $('#draftList').innerHTML=publicationRows.length?publicationRows.map(row=>{
+ const own=row.authorId===currentStaffId||staffOwner;const write=can('drafts')&&can(row.kind==='announcement'?'announcements':'patchNotes');
+ const preview=row.kind==='announcement'?row.payload.title+'\n\n'+row.payload.message:Object.entries(row.payload.sections).filter(([,value])=>value).map(([key,value])=>`${patchTitles[key]}\n${value}`).join('\n\n');
+ return `<article class="admin-card feature-block"><div class="feature-heading"><div><span class="section-kicker">${row.kind==='announcement'?'ANNONCE':'PATCH NOTE'}</span><h3>${esc(row.kind==='announcement'?row.payload.title:'Mise à jour STØRM')}</h3><small>Par ${esc(row.author)} · ${esc(dateTime(row.updatedAt))}</small></div><span class="version-tag">${draftLabels[row.status]}</span></div><pre class="draft-preview">${esc(preview)}</pre>${row.kind==='announcement'&&row.payload.pingEveryone?'<p class="review-feedback">Mention @everyone activée pour cette publication.</p>':''}${row.kind==='announcement'&&row.payload.image?`<img class="news-image" src="${esc(row.payload.image)}" alt="Image du brouillon" loading="lazy">`:''}${row.reviewComment?`<p class="review-feedback">Retour : ${esc(row.reviewComment)}</p>`:''}<div class="action-row">${row.status!=='published'&&write&&own?`<button class="btn btn-outline" data-draft="${row.id}" data-operation="edit">Modifier</button>`:''}${row.status==='draft'&&write&&own?`<button class="btn btn-primary" data-draft="${row.id}" data-operation="submit">Soumettre</button>`:''}${row.status==='pending'&&can('approvePublications')?`<button class="btn btn-success" data-draft="${row.id}" data-operation="approve">Valider</button><button class="btn btn-danger" data-draft="${row.id}" data-operation="reject">Demander une correction</button>`:''}${row.status==='approved'&&can(row.kind==='announcement'?'announcements':'patchNotes')?`<button class="btn btn-primary" data-draft="${row.id}" data-operation="publish">Publier sur Discord et le site</button>`:''}</div></article>`;
+ }).join(''):empty('Aucun brouillon. Prépare une annonce ou un patch note puis clique sur « Enregistrer un brouillon ».');
+ $$('[data-draft]').forEach(button=>button.onclick=()=>busy(button,()=>draftAction(button.dataset.draft,button.dataset.operation)));
+}
+async function draftAction(id,action){const row=publicationRows.find(row=>row.id===id);
+ if(action==='edit'){
+  editingPublication={id:row.id,revision:row.revision,kind:row.kind};activateTab(row.kind==='announcement'?'annonces':'patchNotes');
+  if(row.kind==='announcement'){$('#annTitle').value=row.payload.title;$('#annMessage').value=row.payload.message;$('#annImage').value=row.payload.image||'';$('#annEveryone').checked=row.payload.pingEveryone;updateAnnouncementPreview();}
+  else{Object.entries(patchFields).forEach(([key,field])=>$('#'+field).value=row.payload.sections[key]||'');updatePatchPreview();}
+  notice('Modifie le contenu puis enregistre le brouillon. Toute validation précédente sera retirée.');return;
+ }
+ if(action==='publish'){
+  if(!confirm('Publier ce contenu validé sur Discord et le site ?'))return;
+  const info=await api('/api/admin/panel');
+  await api('/api/admin/'+(row.kind==='announcement'?'announcements':'patch-notes'),{method:'POST',body:JSON.stringify({draftId:row.id,revision:row.revision,expectedVersion:info.nextVersion})});notice('Publication effectuée.');
+ }else{
+  const comment=action==='reject'?prompt('Corrections demandées à l’auteur :'):'';if(action==='reject'&&!comment)return;
+  await api('/api/admin/drafts/'+row.id,{method:'POST',body:JSON.stringify({action,revision:row.revision,comment})});notice('Brouillon mis à jour.');
+ }
+ await loadDrafts();
+}
+$('#refreshDrafts').onclick=()=>busy($('#refreshDrafts'),loadDrafts);
+const contentSchemas={roadmap:{title:'Suivi du développement',fields:{title:'Titre',description:'Description',status:'Statut'}},rules:{title:'Règlement',fields:{title:'Titre',text:'Règle'}},faq:{title:'Questions fréquentes',fields:{question:'Question',answer:'Réponse'}}};
+async function loadContent(){const response=await api('/api/admin/content');publicContent=response.content;publicContentRevision=response.revision;renderContent();}
+function renderContent(){
+ $('#contentEditor').innerHTML=Object.entries(contentSchemas).map(([key,schema])=>`<article class="admin-card feature-block"><div class="feature-heading"><h3>${schema.title}</h3><button type="button" class="btn btn-outline" data-add-content="${key}">Ajouter une entrée</button></div><div data-content-list="${key}">${publicContent[key].map((item,index)=>`<div class="content-row">${Object.entries(schema.fields).map(([field,label])=>`<div class="field"><label for="${key}-${index}-${field}">${label}</label>${field==='status'?`<select class="select" data-field="${field}" id="${key}-${index}-${field}">${Object.entries({planned:'À venir',in_progress:'En cours',done:'Terminé'}).map(([value,label])=>`<option value="${value}" ${item[field]===value?'selected':''}>${label}</option>`).join('')}</select>`:field==='title'||field==='question'?`<input class="input" data-field="${field}" id="${key}-${index}-${field}" value="${esc(item[field])}" required>`:`<textarea class="textarea short" data-field="${field}" id="${key}-${index}-${field}" required>${esc(item[field])}</textarea>`}</div>`).join('')}<button type="button" class="btn btn-ghost compact" data-remove-content="${key}" data-index="${index}">Retirer cette entrée</button></div>`).join('')}</div></article>`).join('')+`<article class="admin-card feature-block"><h3>Présentation du serveur</h3><div class="field"><label for="serverDescription">Présentation</label><textarea class="textarea" id="serverDescription" required>${esc(publicContent.presentation.description)}</textarea></div><div class="field"><label for="serverFeatures">Particularités · une par ligne</label><textarea class="textarea short" id="serverFeatures">${esc(publicContent.presentation.features.join('\n'))}</textarea></div><div class="field"><label for="serverScreenshots">Captures · une URL HTTPS par ligne</label><textarea class="textarea short" id="serverScreenshots" placeholder="https://…">${esc(publicContent.presentation.screenshots.join('\n'))}</textarea></div></article><article class="admin-card feature-block"><h3>Recrutement staff</h3><label class="recruitment-toggle"><input type="checkbox" id="recruitmentOpen" ${publicContent.recruitment.open?'checked':''}> Ouvrir les candidatures</label><div class="field"><label for="recruitmentIntroEditor">Message d’accueil des candidats</label><textarea id="recruitmentIntroEditor" class="textarea short" required>${esc(publicContent.recruitment.intro)}</textarea></div></article>`;
+ $$('[data-add-content]').forEach(button=>button.onclick=()=>{gatherContent();const key=button.dataset.addContent;publicContent[key].push(Object.fromEntries(Object.keys(contentSchemas[key].fields).map(field=>[field,field==='status'?'planned':''])));renderContent();});
+ $$('[data-remove-content]').forEach(button=>button.onclick=()=>{gatherContent();publicContent[button.dataset.removeContent].splice(Number(button.dataset.index),1);renderContent();});
+}
+function gatherContent(){for(const key of Object.keys(contentSchemas))publicContent[key]=[...$(`[data-content-list="${key}"]`).querySelectorAll('.content-row')].map(row=>Object.fromEntries([...row.querySelectorAll('[data-field]')].map(input=>[input.dataset.field,input.value])));
+ const lines=id=>$('#'+id).value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);publicContent.presentation={description:$('#serverDescription').value,features:lines('serverFeatures'),screenshots:lines('serverScreenshots')};publicContent.recruitment={open:$('#recruitmentOpen').checked,intro:$('#recruitmentIntroEditor').value};return publicContent;}
+$('#contentForm').onsubmit=event=>{event.preventDefault();busy(event.submitter,async()=>{if(!confirm('Publier ces modifications sur le site public ?'))return;const result=await api('/api/admin/content',{method:'POST',body:JSON.stringify({content:gatherContent(),revision:publicContentRevision})});publicContentRevision=result.revision;notice('Pages publiques actualisées.');});};
+updateFeaturePermissions();

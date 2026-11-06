@@ -5,16 +5,18 @@ let current = null;
 let dossiers = [];
 let lastSelectedId = null;
 let permissions = [];
+let staffOwner = false;
+let currentStaffId = null;
 let panelInfo = {};
 let accessData = null;
 let roleUpdates = {};
 let editedRoleId = null;
 const actionLabels = { ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire', untimeout: 'Retirer le mute', warn: 'Avertir' };
-const tabPermissions = { tickets: 'tickets', annonces: 'announcements', giveaways: 'giveaways', streams: 'streams', settings: 'settings', patchNotes: 'patchNotes', access: 'access' };
+const tabPermissions = { tickets: 'tickets', annonces: 'announcements', giveaways: 'giveaways', streams: 'streams', settings: 'settings', patchNotes: 'patchNotes', access: 'access', content: 'content', applications: 'applications', members: 'members', audit: 'audit', statistics: 'statistics' };
 const can = p => permissions.includes(p);
 const canModerate = () => ['ban', 'unban', 'kick', 'timeout', 'warn'].some(can);
 
-const tabTitles = { dashboard:'Dashboard', tickets:'Tickets & contestations', annonces:'Annonces', giveaways:'Giveaways', streams:'Streams', settings:'Serveur FiveM', moderation:'Modération', patchNotes:'Patch notes', access:'Rôles & permissions' };
+const tabTitles = { dashboard:'Dashboard', tickets:'Tickets & contestations', annonces:'Annonces', giveaways:'Giveaways', streams:'Streams', settings:'Serveur FiveM', moderation:'Modération', patchNotes:'Patch notes', access:'Rôles & permissions', content:'Pages publiques', applications:'Candidatures', members:'Fiches membres', audit:'Journal des actions', statistics:'Statistiques', drafts:'Brouillons & validation' };
 
 function notice(msg, bad = false) {
   $('#globalNotice').innerHTML = `<div class="notice-v2 ${bad ? 'error' : ''}"><span>${bad ? '!' : '✓'}</span>${esc(msg)}</div>`;
@@ -32,7 +34,9 @@ async function api(url, opt = {}) {
 }
 
 function activateTab(tab) {
+  if (tab === 'drafts' && !can('drafts') && !can('approvePublications')) return notice('Accès aux brouillons refusé.', true);
   if ((tabPermissions[tab] && !can(tabPermissions[tab])) || (tab === 'moderation' && !canModerate())) return notice('Tu ne disposes pas de cette permission.', true);
+  if (typeof loadFeatureTab === 'function') loadFeatureTab(tab);
   $$('.admin-menu button').forEach((b) => {
     b.classList.toggle('active', b.dataset.tab === tab);
     if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -53,6 +57,8 @@ async function boot() {
   const me = await api('/api/me');
   if (!me.user) { location.href = '/staff'; return; }
   if (!me.user.isStaff) { notice('Ton compte ne dispose pas d’un rôle autorisé. Contacte le propriétaire du serveur.', true); return; }
+  staffOwner = Boolean(me.user.owner);
+  currentStaffId = me.user.id;
   $('#username').textContent = me.user.username;
   $('#welcomeName').textContent = me.user.username;
   $('#avatar').src = me.user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
@@ -263,13 +269,14 @@ async function refreshPanel() {
   permissions = panelInfo.permissions;
   $$('.admin-menu [data-tab], [data-jump]').forEach(button => {
     const tab = button.dataset.tab || button.dataset.jump;
-    button.hidden = tab === 'moderation' ? !canModerate() : Boolean(tabPermissions[tab] && !can(tabPermissions[tab]));
+    button.hidden = tab === 'drafts' ? !can('drafts') && !can('approvePublications') : tab === 'moderation' ? !canModerate() : Boolean(tabPermissions[tab] && !can(tabPermissions[tab]));
     button.title = tabTitles[tab] || tab;
     button.setAttribute('aria-label', tabTitles[tab] || tab);
   });
   const selected = $('.admin-panel.active')?.id;
-  if ((tabPermissions[selected] && !can(tabPermissions[selected])) || (selected === 'moderation' && !canModerate())) activateTab('dashboard');
+  if ((tabPermissions[selected] && !can(tabPermissions[selected])) || (selected === 'moderation' && !canModerate()) || (selected === 'drafts' && !can('drafts') && !can('approvePublications'))) activateTab('dashboard');
   $('#modAction').innerHTML = Object.entries(actionLabels).filter(([key]) => can(key === 'untimeout' ? 'timeout' : key)).map(([key, label]) => `<option value="${key}">${label}</option>`).join('');
+  if (typeof updateFeaturePermissions === 'function') updateFeaturePermissions();
   updateDuration();
   $('#patchVersion').textContent = panelInfo.nextVersion;
   updatePatchPreview();
