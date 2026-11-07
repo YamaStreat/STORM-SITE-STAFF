@@ -1,5 +1,6 @@
 const {randomUUID,createHash}=require('node:crypto');
 const {ChannelType}=require('discord.js');
+const {brandedMessage}=require('./discord-branding');
 const TYPES=Object.freeze({helper:{label:'Helpeur',description:'Accompagner les joueurs, traiter les demandes et garder une attitude calme et impartiale.',question:'Un joueur mécontent conteste une décision et s’énerve dans un ticket. Comment l’accompagnes-tu ?'},animator:{label:'Animateur',description:'Imaginer et encadrer des événements accessibles, équitables et respectueux des règles.',question:'Propose un événement PVP : objectif, déroulement, règles, équité et gestion d’un imprévu.'}});
 const CHANNEL_ID='1568410724605239326',ROLE_ID='1564827474099966103';
 const services=new WeakMap();
@@ -42,8 +43,13 @@ function createRecruitmentService({state,saveState,client,guildId,publicUrl}){
    try {
    if(changed||announce||firstSave){
     const notify=opened.length>0||((announce||firstSave)&&Object.values(types).some(Boolean));
-    const content=`${notify?`<@&${ROLE_ID}>\n\n`:''}# 📣・RECRUTEMENTS STØRM PVP\n\n${Object.entries(TYPES).map(([key,value])=>`${types[key]?'🟢':'🔴'} **${value.label} : ${types[key]?'OUVERT':'FERMÉ'}**${types[key]?`\n${value.description}\n👉 Candidater : ${link(key)}`:''}`).join('\n\n')}\n\n📋 Consulte le règlement et prépare une candidature personnelle et complète.\nLes candidatures en cours restent consultables même après la fermeture.\n\n**STØRM PVP ・ Équipe de recrutement**`;
-    const sent=await(await channel()).send({content,allowedMentions:{parse:[],roles:notify?[ROLE_ID]:[]}});messageId=sent.id;
+    const fields=Object.entries(TYPES).map(([key,value])=>({name:`${types[key]?'🟢':'🔒'} ${value.label} — ${types[key]?'OUVERT':'FERMÉ'}`,value:types[key]?`${value.description}\n\n**Ton objectif :** ${key==='helper'?'écouter, guider et aider les joueurs avec impartialité.':'rassembler la communauté autour d’événements créatifs et équitables.'}\n[Déposer ma candidature](${link(key)})`:'Les candidatures pour ce poste sont actuellement fermées.',inline:false}));
+    fields.push({name:'📋 Avant de candidater',value:'Lis le règlement, présente une motivation personnelle et prends le temps de répondre à la mise en situation.\nLe suivi et les retours détaillés sont privés. Les décisions finales sont annoncées dans ce salon.'},{name:'📩 Et ensuite ?',value:'Une confirmation est envoyée en MP si tes paramètres Discord le permettent. L’équipe étudie ton dossier ; tu retrouves chaque étape dans ton suivi.'});
+    const links=Object.entries(TYPES).filter(([key])=>types[key]).map(([key,value])=>({label:`Candidater · ${value.label}`,url:link(key)}));
+    links.push({label:'Règlement',url:new URL('/reglement',publicUrl).href},{label:'Mon suivi',url:link()});
+    const payload=brandedMessage({title:Object.values(types).some(Boolean)?'📣 REJOINS LE STAFF STØRM PVP':'🔒 RECRUTEMENTS ACTUELLEMENT FERMÉS',description:Object.values(types).some(Boolean)?'Tu souhaites t’investir dans une communauté PVP et faire la différence ?\n**Choisis le poste qui te correspond et rejoins les coulisses de STØRM.**':'Merci pour votre intérêt et vos candidatures.\nLes dossiers déjà envoyés restent en cours de traitement et leur suivi demeure accessible.',fields},{content:notify?`<@&${ROLE_ID}>`:'',links});
+    payload.allowedMentions={parse:[],roles:notify?[ROLE_ID]:[]};
+    const sent=await(await channel()).send(payload);messageId=sent.id;
    }
    } catch(err){if(opened.length||!changed||announce)throw err;announcementError='Recrutements fermés sur le site, mais l’annonce Discord n’a pas pu être envoyée.';}
    state.recruitmentSettings={types:{helper:types.helper,animator:types.animator},revision:previous.revision+1,updatedAt:Date.now(),lastAnnouncementId:messageId||state.recruitmentSettings?.lastAnnouncementId||null,announcementError};saveState();

@@ -173,3 +173,13 @@ Quand le bot est connecté, les nouvelles décisions finales sont regroupées au
 Les envois confirmés sont mémorisés pour éviter de republier les mêmes décisions. Les groupes de plus de 12 dossiers sont répartis en plusieurs messages ; en cas d’échec partiel, le traitement reprend avec les groupes restants. Une décision corrigée d’acceptée vers refusée ou inversement produit un nouveau résultat. Les anciennes décisions prises avant cette mise à jour ne sont pas annoncées rétroactivement. La file et les statuts d’envoi sont conservés dans `data/state.json`. Aucun rôle staff n’est attribué automatiquement.
 
 Après déploiement, redémarrer le bot pour activer le traitement périodique. Les tests utilisent Discord simulé ; vérifier les permissions du bot et les liens publics sur Gamost avant la première annonce réelle.
+
+## Catégories du panel et annonces Discord illustrées
+
+Le menu est organisé en six catégories : **Vue d’ensemble**, **Support & joueurs**, **Modération**, **Publications**, **Recrutements**, **Configuration**. Les catégories dont aucun outil n’est autorisé sont masquées ; chaque bouton conserve sa vérification de permission. Sur mobile, les catégories restent séparées dans la navigation horizontale.
+
+Les annonces d’ouverture des recrutements et le message de statut du serveur utilisent désormais un embed aux couleurs STØRM, le logo rond, le logo horizontal et des boutons vers les pages utiles. L’ouverture détaille chaque poste, ses missions, les conditions de candidature et le suivi, en conservant le salon et la mention du rôle configurés. Le message de développement distingue clairement la préparation du serveur de sa disponibilité réelle ; désactiver le mode développement n’annonce pas une disponibilité FiveM non vérifiée.
+
+Les PNG locaux `public/assets/storm-round.png` et `public/assets/storm-wordmark.png` sont joints aux messages lorsque disponibles, pour que leurs images restent hébergées dans Discord. Si une copie locale manque, les liens d’origine sont utilisés. Le bot doit disposer des permissions **Intégrer des liens** et **Joindre des fichiers** dans les salons concernés. Conserver les fichiers de `public/assets/` pendant la mise à jour.
+
+Pour actualiser un ancien message : utiliser **Renvoyer l’annonce actuelle** dans Candidatures et **Publier / actualiser le message Discord** dans Serveur. Le message de statut existant est modifié sans doublon ; ses anciennes pièces jointes sont remplacées à chaque actualisation.

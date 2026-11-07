@@ -273,6 +273,7 @@ async function refreshPanel() {
     button.title = tabTitles[tab] || tab;
     button.setAttribute('aria-label', tabTitles[tab] || tab);
   });
+  $$('[data-menu-group]').forEach(group => { group.hidden = [...group.querySelectorAll('[data-tab]')].every(button => button.hidden); });
   const selected = $('.admin-panel.active')?.id;
   if ((tabPermissions[selected] && !can(tabPermissions[selected]) && !(selected === 'applications' && can('recruitment'))) || (selected === 'moderation' && !canModerate()) || (selected === 'drafts' && !can('drafts') && !can('approvePublications'))) activateTab('dashboard');
   $('#modAction').innerHTML = Object.entries(actionLabels).filter(([key]) => can(key === 'untimeout' ? 'timeout' : key)).map(([key, label]) => `<option value="${key}">${label}</option>`).join('');

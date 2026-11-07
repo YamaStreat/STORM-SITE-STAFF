@@ -77,11 +77,12 @@ test('patch publishing validates, routes, serializes version and disables mentio
 }));
 test('development publication updates same message instead of duplicating it', async () => withServer(async (f, request) => {
   assert.equal((await request('development-message', {})).status, 200);
-  assert.match(f.calls[0][2].content, /EN COURS DE DÉVELOPPEMENT\n\n/);
+  assert.match(f.calls[0][2].embeds[0].title, /EN COURS DE DÉVELOPPEMENT/);
+  assert.equal(f.calls[0][2].components[0].components[0].label, 'Suivre le développement');
   assert.equal(f.calls[0][1], CHANNELS.development);
   f.state.siteConfig.development = false;
   assert.equal((await request('development-message', {})).status, 200);
-  assert.equal(f.calls[1][0], 'edit'); assert.ok(!f.calls[1][2].content.includes('EN COURS DE DÉVELOPPEMENT'));
+  assert.equal(f.calls[1][0], 'edit'); assert.ok(!f.calls[1][2].embeds[0].title.includes('EN COURS DE DÉVELOPPEMENT'));
 }));
 test('moderation blocks invalid duration, protected members, hierarchy and missing native permissions', async () => withServer(async (f, request) => {
   const body = {action:'timeout',userId:ID.target,reason:'Spam',minutes:60};
@@ -118,10 +119,12 @@ test('saving server status also synchronizes Discord and rejects malformed value
   assert.equal((await request('site-status', {development:false})).status, 200);
   assert.equal(f.state.siteConfig.development, false);
   assert.equal(f.calls[0][1], CHANNELS.development);
-  assert.match(f.calls[0][2].content, /STATUT DU SERVEUR/);
+  assert.match(f.calls[0][2].embeds[0].title, /STATUT DU SERVEUR/);
+  assert.deepEqual(f.calls[0][2].allowedMentions, {parse:[]});
   assert.equal((await request('site-status', {development:true})).status, 200);
   assert.equal(f.calls[1][0], 'edit');
-  assert.match(f.calls[1][2].content, /EN COURS DE DÉVELOPPEMENT/);
+  assert.match(f.calls[1][2].embeds[0].title, /EN COURS DE DÉVELOPPEMENT/);
+  assert.deepEqual(f.calls[1][2].attachments, []);
 }));
 test('concurrent patch submissions cannot publish the same version twice', async () => withServer(async (f, request) => {
   const originalFetch = f.guild.channels.fetch;

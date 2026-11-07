@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#030d24">
   <title>STØRM SYSTEM — Staff</title>
   <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./admin-theme.css?v=storm-1"><link rel="stylesheet" href="/community-admin.css?v=1">
+  <link rel="stylesheet" href="./admin-theme.css?v=categories-1"><link rel="stylesheet" href="/community-admin.css?v=1">
 </head>
 <body class="admin-page">
   <div class="admin-layout-v2">
@@ -17,21 +17,12 @@
       </a>
       <div class="sidebar-caption">CENTRE DE CONTRÔLE</div>
       <nav class="admin-menu" aria-label="Navigation du panel staff">
-        <button data-tab="dashboard" class="active"><span>⌁</span><b>Dashboard</b></button>
-        <button data-tab="tickets"><span>✉</span><b>Tickets</b><i id="menuTicketCount">0</i></button>
-        <button data-tab="annonces"><span>◉</span><b>Annonces</b></button>
-        <button data-tab="giveaways"><span>◇</span><b>Giveaways</b></button>
-        <button data-tab="streams"><span>●</span><b>Streams</b></button>
-        <button data-tab="moderation"><span>⛨</span><b>Modération</b></button>
-        <button data-tab="patchNotes"><span>≡</span><b>Patch notes</b></button>
-        <button data-tab="access"><span>⌘</span><b>Accès & rôles</b></button>
-        <button data-tab="members"><span>◎</span><b>Fiches membres</b></button>
-        <button data-tab="applications"><span>↗</span><b>Candidatures</b></button>
-        <button data-tab="drafts"><span>▤</span><b>Brouillons</b></button>
-        <button data-tab="audit"><span>◷</span><b>Journal</b></button>
-        <button data-tab="statistics"><span>▥</span><b>Statistiques</b></button>
-        <button data-tab="content"><span>✎</span><b>Pages publiques</b></button>
-        <button data-tab="settings"><span>⚙</span><b>Serveur</b></button>
+        <section class="menu-group" data-menu-group="overview" aria-labelledby="menu-overview"><h2 id="menu-overview">Vue d’ensemble</h2><div class="menu-group-buttons"><button data-tab="dashboard" class="active"><span>⌁</span><b>Dashboard</b></button><button data-tab="statistics"><span>▥</span><b>Statistiques</b></button></div></section>
+        <section class="menu-group" data-menu-group="support" aria-labelledby="menu-support"><h2 id="menu-support">Support & joueurs</h2><div class="menu-group-buttons"><button data-tab="tickets"><span>✉</span><b>Tickets</b><i id="menuTicketCount">0</i></button><button data-tab="members"><span>◎</span><b>Fiches membres</b></button></div></section>
+        <section class="menu-group" data-menu-group="moderation" aria-labelledby="menu-moderation"><h2 id="menu-moderation">Modération</h2><div class="menu-group-buttons"><button data-tab="moderation"><span>⛨</span><b>Modération</b></button><button data-tab="audit"><span>◷</span><b>Journal</b></button></div></section>
+        <section class="menu-group" data-menu-group="publications" aria-labelledby="menu-publications"><h2 id="menu-publications">Publications</h2><div class="menu-group-buttons"><button data-tab="annonces"><span>◉</span><b>Annonces</b></button><button data-tab="giveaways"><span>◇</span><b>Giveaways</b></button><button data-tab="streams"><span>●</span><b>Streams</b></button><button data-tab="patchNotes"><span>≡</span><b>Patch notes</b></button><button data-tab="drafts"><span>▤</span><b>Brouillons</b></button></div></section>
+        <section class="menu-group" data-menu-group="recruitment" aria-labelledby="menu-recruitment"><h2 id="menu-recruitment">Recrutements</h2><div class="menu-group-buttons"><button data-tab="applications"><span>↗</span><b>Candidatures</b></button></div></section>
+        <section class="menu-group" data-menu-group="configuration" aria-labelledby="menu-configuration"><h2 id="menu-configuration">Configuration</h2><div class="menu-group-buttons"><button data-tab="content"><span>✎</span><b>Pages publiques</b></button><button data-tab="access"><span>⌘</span><b>Accès & rôles</b></button><button data-tab="settings"><span>⚙</span><b>Serveur</b></button></div></section>
       </nav>
       <div class="sidebar-bottom">
         <a class="sidebar-site-link" href="/" target="_blank" rel="noopener">Voir le site public <span>↗</span></a>
@@ -222,6 +213,6 @@ Nouveau contenu ajouté"></textarea></div>
     </main>
   </div>
   <script src="./admin-branding.js?v=storm-1"></script>
-  <script src="./admin.js?v=community-1"></script><script src="/community-admin.js?v=recruitment-2"></script>
+  <script src="./admin.js?v=categories-1"></script><script src="/community-admin.js?v=recruitment-2"></script>
 </body>
 </html>

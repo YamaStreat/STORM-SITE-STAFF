@@ -1,3 +1,4 @@
+const { brandedMessage } = require('./discord-branding');
 const { installCommunity } = require('./community');
 const { PermissionFlagsBits, ChannelType } = require('discord.js');
 
@@ -138,13 +139,26 @@ function installPanel(app, { client, getConfig, state, saveConfig, saveState, gu
     updatingStatus = true;
     try {
     const channel = await destination(guild, CHANNELS.development);
-    const content = development
-      ? '# ⚙️・STØRM PVP — EN COURS DE DÉVELOPPEMENT\n\nLe serveur est actuellement en cours de développement et n’est pas encore ouvert au public.\n\nNotre équipe prépare le gameplay, les systèmes PVP et les dernières finitions pour vous proposer une expérience de qualité.\n\n📢 Suivez les annonces et les patch notes pour découvrir nos avancées. La date d’ouverture sera communiquée ici dès qu’elle sera confirmée.\n\n**Merci pour votre patience et votre soutien !**\n\n**STØRM PVP ・ Development Team**'
-      : '# 📡・STØRM PVP — STATUT DU SERVEUR\n\nLe mode développement est désactivé. Consultez le site et les annonces pour connaître la disponibilité du serveur.\n\n**STØRM PVP ・ Development Team**';
+    const payload = brandedMessage({
+      title: development ? '⚙️ STØRM PVP — EN COURS DE DÉVELOPPEMENT' : '📡 STØRM PVP — STATUT DU SERVEUR',
+      description: development ? '**La tempête se prépare.**\nLe serveur FiveM n’est pas encore ouvert au public. Notre équipe prépare une expérience PVP soignée, compétitive et accessible.' : '**Retrouve les dernières informations avant de rejoindre la partie.**\nLe mode développement est désactivé. Cela ne garantit pas à lui seul que le serveur FiveM est en ligne.',
+      fields: development ? [
+        { name: '🛠️ Dans les coulisses', value: 'Préparation du gameplay, des systèmes PVP et des dernières finitions. Consulte le suivi du projet pour découvrir les étapes annoncées.' },
+        { name: '📅 Date d’ouverture', value: 'Aucune date n’est annoncée pour le moment. Elle sera communiquée lorsque le serveur sera prêt.' },
+        { name: '⚡ Suis la progression', value: 'Les annonces et les patch notes présentent les avancées. Merci pour votre patience et votre soutien !' }
+      ] : [
+        { name: '🟢 Disponibilité FiveM', value: 'Consulte le statut public sur le site pour connaître la disponibilité observée du serveur.' },
+        { name: '📋 Avant de jouer', value: 'Prends connaissance du règlement et des annonces de l’équipe.' }
+      ]
+    }, { links: [
+      { label: development ? 'Suivre le développement' : 'Voir le statut', url: new URL(development ? '/developpement' : '/', publicUrl).href },
+      { label: 'Patch notes', url: new URL('/#patch-notes', publicUrl).href },
+      { label: 'Règlement', url: new URL('/reglement', publicUrl).href }
+    ] });
     const previous = state.siteConfig.developmentMessageId;
     let message = previous ? await channel.messages.fetch(previous).catch(e => { if (e.code === 10008) return null; throw e; }) : null;
-    if (message) await message.edit({ content, allowedMentions: { parse: [] } });
-    else { message = await channel.send({ content, allowedMentions: { parse: [] } }); state.siteConfig.developmentMessageId = message.id; saveState(); }
+    if (message) await message.edit({ ...payload, attachments: [] });
+    else { message = await channel.send(payload); state.siteConfig.developmentMessageId = message.id; saveState(); }
     } finally { updatingStatus = false; }
   }
   app.post('/api/admin/development-message', requireStaff, route(async (req, res) => {

@@ -106,7 +106,7 @@ test('recruitment types open independently, announce links and ping only the con
  state.recruitmentSettings={types:{helper:false,animator:false},revision:0};
  assert.equal((await request('/api/admin/recruitment',{types:{helper:true,animator:false},revision:0},ids.author)).status,403);
  const opened=await request('/api/admin/recruitment',{types:{helper:true,animator:false},revision:0});assert.equal(opened.status,200);assert.equal(opened.body.announced,true);
- assert.equal(calls[0].id,'1568410724605239326');assert.deepEqual(calls[0].payload.allowedMentions,{parse:[],roles:['1564827474099966103']});assert.match(calls[0].payload.content,/candidatures\?type=helper/);assert.match(calls[0].payload.content,/Animateur : FERMÉ/);
+ assert.equal(calls[0].id,'1568410724605239326');assert.deepEqual(calls[0].payload.allowedMentions,{parse:[],roles:['1564827474099966103']});assert.ok(calls[0].payload.components[0].components.some(button=>button.url.includes('candidatures?type=helper')));assert.ok(calls[0].payload.embeds[0].fields.some(field=>field.name.includes('Animateur — FERMÉ')));assert.ok(calls[0].payload.embeds[0].image.url);assert.ok(calls[0].payload.embeds[0].thumbnail.url);
  const publicInfo=(await request('/api/community')).body;assert.deepEqual(publicInfo.content.recruitment.types,{helper:true,animator:false});assert.ok(publicInfo.recruitmentTypes.animator.question);
  assert.equal((await request('/api/applications',{...recruitmentBody,type:'animator'},ids.candidate)).status,409);
  assert.equal((await request('/api/admin/recruitment',{types:{helper:true,animator:false},revision:1})).body.announced,false);assert.equal(calls.length,1);
