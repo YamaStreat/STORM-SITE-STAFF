@@ -7,6 +7,7 @@ const session = require('express-session');
 const crypto = require('crypto');
 const { installPanel, CHANNELS, NOTIFY_ROLES } = require('./panel');
 const { auditEvent } = require('./community');
+const { createMemberCounters } = require('./member-counters');
 const { createMemberOnboarding } = require('./member-onboarding');
 const { cacheBrandAssets } = require('./branding');
 const {
@@ -95,6 +96,7 @@ const client = new Client({
 });
 
 const memberOnboarding = createMemberOnboarding({ client, state, saveState, guildId: GUILD_ID, publicUrl: PUBLIC_URL });
+const memberCounters = createMemberCounters({ client, guildId: GUILD_ID });
 
 const commands = [
   new SlashCommandBuilder().setName('accueil').setDescription('Publie ou actualise le message de bienvenue et le règlement avec acceptation').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -770,11 +772,16 @@ client.once(Events.ClientReady, async c => {
   await registerCommands().catch(err => console.error('[STORM] Commandes:', err));
   setInterval(giveawayLoop, 15000);
   giveawayLoop().catch(console.error);
+  memberCounters.start();
   memberOnboarding.publish().catch(err => console.error('[STORM ACCUEIL]', err.message));
   // Recruitment decisions are published only through the explicit staff action.
 });
 
-client.on(Events.GuildMemberAdd, member => memberOnboarding.onJoin(member).catch(err => console.error('[STORM ACCUEIL]', err.message)));
+client.on(Events.GuildMemberAdd, member => {
+  memberCounters.onJoin(member);
+  memberOnboarding.onJoin(member).catch(err => console.error('[STORM ACCUEIL]', err.message));
+});
+client.on(Events.GuildMemberRemove, member => memberCounters.onLeave(member));
 
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;

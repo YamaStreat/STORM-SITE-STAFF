@@ -201,3 +201,16 @@ Le bot publie ou actualise au démarrage :
 La commande administrateur **`/accueil`** publie ou actualise ces messages à la demande, sans dépendre de `/setup`. Les identifiants des messages sont conservés dans `data/state.json` et réutilisés après redémarrage pour éviter les doublons. Les règles personnalisées enregistrées dans Pages publiques sont utilisées ; sinon, le règlement FiveM/Discord détaillé par défaut est publié. Après une modification du règlement ou des logos, `/accueil` permet de les synchroniser.
 
 Cette mise à jour ne distribue pas rétroactivement de rôle d’attente à tous les membres existants. Ils peuvent accepter le règlement via le bouton officiel. Les tests utilisent des membres et messages simulés ; le premier envoi réel aura lieu au démarrage du bot sur Gamost.
+
+## Compteurs de membres et de bots
+
+Les deux salons vocaux de statistiques sont actualisés au démarrage puis à chaque arrivée ou départ :
+
+- `1564314924111495368` → `🌐・Membres : N` (membres humains, bots exclus).
+- `1564315023952580700` → `🤖・Bots : N`.
+
+Le bot récupère d’abord la liste complète des membres, puis tient les comptes à jour avec les événements Discord, y compris les bots. Les événements reçus pendant la récupération initiale sont pris en compte. Une récupération incomplète ou échouée ne remplace pas les nombres par zéro. Les autres serveurs sont ignorés.
+
+Les changements sont regroupés sur 10 secondes et les salons ne sont renommés que si nécessaire. Discord limite les renommages rapprochés : le client attend automatiquement les créneaux autorisés ; plusieurs arrivées simultanées peuvent donc apparaître comme une seule actualisation. Une erreur déclenche une nouvelle tentative après une minute, sans bloquer l’accueil ni l’attribution des rôles.
+
+Le bot doit avoir **Gérer les salons** dans ces deux salons vocaux et **Server Members Intent** doit rester activé dans Discord Developer Portal → Bot. Les compteurs n’altèrent ni les permissions, ni la catégorie, ni les autres réglages des salons. Transférer le dossier `src/` complet puis redémarrer pour activer le calcul initial.
