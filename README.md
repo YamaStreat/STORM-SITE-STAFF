@@ -119,7 +119,7 @@ Dans **Pages publiques**, l’équipe autorisée modifie les étapes et leur sta
 
 ### Candidatures
 
-Une connexion Discord et l’appartenance au serveur sont nécessaires pour candidater. Le formulaire demande la motivation, l’expérience, les disponibilités et l’acceptation du règlement. Une candidature active par compte ; délai de 24 heures entre les envois. Les réponses sont visibles uniquement par les responsables disposant du droit **Étudier les candidatures staff**. Le candidat voit uniquement ses propres statuts et les retours qui lui sont adressés. Les décisions possibles sont « En cours d’étude », « Acceptée » et « Refusée » ; les décisions finales demandent un retour écrit. Accepter une candidature ne modifie pas automatiquement les rôles Discord.
+Une connexion Discord et l’appartenance au serveur sont nécessaires pour candidater. Le formulaire demande la motivation, l’expérience, les disponibilités et l’acceptation du règlement. Une candidature active par compte ; aucun délai après une décision finale, pour permettre les tests et une nouvelle candidature immédiate. Les réponses sont visibles uniquement par les responsables disposant du droit **Étudier les candidatures staff**. Le candidat voit uniquement ses propres statuts et les retours qui lui sont adressés. Les décisions possibles sont « En cours d’étude », « Acceptée » et « Refusée » ; le retour écrit est facultatif. Accepter une candidature ne modifie pas automatiquement les rôles Discord.
 
 ### Fiches membres, journal et statistiques
 
@@ -151,7 +151,8 @@ Le règlement STØRM comporte 18 sections : respect, sécurité et vie privée s
 
 Dans **Candidatures**, un responsable disposant du nouveau droit **Ouvrir, fermer et annoncer les recrutements** ouvre ou ferme séparément **Helpeur** et **Animateur**. Le formulaire public n’accepte que les postes ouverts et vérifie à nouveau leur disponibilité au moment d’enregistrer la candidature.
 
-- Salon des annonces et résultats : `1568410724605239326`.
+- Salon des annonces d’ouverture : `1568410724605239326`.
+- Salon des résultats : `1568419705893687459`.
 - Rôle mentionné lors d’une ouverture ou d’une nouvelle annonce volontaire : `1564827474099966103`.
 - L’annonce affiche les deux états et les liens directs `/candidatures?type=helper` et `/candidatures?type=animator` pour les postes ouverts.
 - La première sauvegarde des réglages synchronise l’annonce, même lorsque l’ancien recrutement général était déjà ouvert.
@@ -164,15 +165,17 @@ Les réglages d’ouverture ont leur propre version et ne sont plus modifiables 
 
 La candidature demande le poste, la motivation, l’expérience, les disponibilités, une estimation du nombre d’heures par semaine et une mise en situation adaptée au rôle. Le compte Discord est vérifié, le règlement doit être accepté, et la limite d’une candidature active par compte reste applicable. Les anciennes candidatures générales sont conservées et restent traitables.
 
-Un MP est tenté lors de la réception, de la prise en charge, de l’acceptation et du refus. Chaque message comporte le poste, la référence du dossier et le lien du suivi ; les décisions incluent le retour privé du staff. Les messages trop longs sont découpés. Un échec de MP ne supprime jamais la candidature ni la décision. Le panel affiche le statut du dernier MP et permet de le retenter. Le suivi privé sur le site reste disponible si le candidat refuse les MP.
+Un MP est tenté à la réception et à la prise en charge. Les MP d’acceptation ou de refus sont envoyés uniquement avec la publication explicite des résultats. Chaque message comporte le poste, la référence du dossier et le lien du suivi ; les décisions incluent le retour privé du staff. Les messages trop longs sont découpés. Un échec de MP ne supprime jamais la candidature ni la décision. Le panel affiche le statut du dernier MP et permet de le retenter. Le suivi privé sur le site reste disponible si le candidat refuse les MP.
 
 ### Résultats groupés
 
-Quand le bot est connecté, les nouvelles décisions finales sont regroupées automatiquement chaque minute dans le salon de recrutement, avec des rubriques **Acceptées** et **Refusées** et le poste de chaque candidat. Le bouton **Publier les résultats en attente maintenant** déclenche le même traitement. Seules les identités Discord et les décisions sont publiques ; les réponses et les motifs détaillés restent dans le suivi privé et les MP. Le formulaire en informe le candidat avant l’envoi.
+Cliquer sur **Accepter** ou **Refuser** prépare la décision et retire le dossier de la liste **À traiter**, sans MP ni annonce Discord. Le panneau **Publier les résultats en attente** affiche les noms, identifiants et postes, séparés en acceptés et refusés. Les candidats ne voient pas cette décision préparée avant publication. Le retour au candidat est facultatif.
 
-Les envois confirmés sont mémorisés pour éviter de republier les mêmes décisions. Les groupes de plus de 12 dossiers sont répartis en plusieurs messages ; en cas d’échec partiel, le traitement reprend avec les groupes restants. Une décision corrigée d’acceptée vers refusée ou inversement produit un nouveau résultat. Les anciennes décisions prises avant cette mise à jour ne sont pas annoncées rétroactivement. La file et les statuts d’envoi sont conservés dans `data/state.json`. Aucun rôle staff n’est attribué automatiquement.
+Le bouton **Publier** envoie uniquement les décisions affichées et sélectionnées lors du clic : une annonce groupée dans `1568419705893687459`, puis un MP individuel avec le retour privé. Il n’existe plus de publication automatique au démarrage ou chaque minute. Les annonces d’ouverture restent dans `1568410724605239326` avec le rôle précédemment configuré.
 
-Après déploiement, redémarrer le bot pour activer le traitement périodique. Les tests utilisent Discord simulé ; vérifier les permissions du bot et les liens publics sur Gamost avant la première annonce réelle.
+Les envois confirmés sont mémorisés. En cas d’échec, un nouveau clic reprend le traitement sans republier les annonces confirmées. Les MP échoués restent visibles dans les résultats en attente avec l’indication « Annonce déjà envoyée · MP à retenter ». La publication d’une ancienne liste devenue obsolète est refusée et demande de recharger l’aperçu. Les motifs ne sont jamais affichés dans l’annonce publique. La file et les états d’envoi restent dans `data/state.json` et sont conservés au redémarrage, sans déclencher d’envoi.
+
+Le délai de 24 heures a été retiré. Une seule candidature à traiter par compte reste autorisée : après une acceptation ou un refus préparé, il est possible de candidater de nouveau immédiatement. Aucun rôle staff n’est attribué automatiquement. Les tests utilisent Discord simulé ; vérifier les permissions du bot et les liens publics sur Gamost avant la première annonce réelle.
 
 ## Catégories du panel et annonces Discord illustrées
 

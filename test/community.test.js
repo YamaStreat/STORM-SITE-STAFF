@@ -47,6 +47,8 @@ test('applications require membership, consent and login, prevent duplicates, an
  const entry=state.applications[0];
  assert.equal((await request('/api/admin/applications/'+entry.id,{status:'accepted',feedback:'Bienvenue dans l’équipe !',revision:1})).status,200);
  assert.equal((await request('/api/admin/applications/'+entry.id,{status:'rejected',feedback:'Ancien formulaire',revision:1})).status,409);
+ assert.equal((await request('/api/applications/mine',undefined,ids.candidate)).body[0].status,'pending');
+ assert.equal((await request('/api/admin/applications/results',{})).status,200);
  assert.equal((await request('/api/applications/mine',undefined,ids.candidate)).body[0].status,'accepted');
  const publicData=await request('/api/community');assert.ok(!JSON.stringify(publicData.body).includes(entry.motivation));
  state.communityContent=structuredClone(DEFAULT_CONTENT);state.communityContent.recruitment.open=false;
@@ -128,10 +130,10 @@ test('applicants receive private status notifications and final decisions are pu
  assert.equal((await request('/api/admin/applications/'+helper.id,{status:'reviewing',feedback:'Nous étudions ton dossier.',revision:1})).body.dmSent,true);
  assert.equal((await request('/api/admin/applications/'+helper.id,{status:'accepted',feedback:'Motif privé accepté',revision:2})).status,200);
  assert.equal((await request('/api/admin/applications/'+animator.id,{status:'rejected',feedback:'Motif privé refusé',revision:1})).status,200);
- assert.equal(directMessages.length,5);assert.equal(calls.length,0);
+ assert.equal(directMessages.length,3);assert.equal(calls.length,0);
  assert.equal((await request('/api/admin/applications/results')).body.pending,2);
  assert.equal((await request('/api/admin/applications/results',{})).body.sent,2);
- assert.equal(calls.length,1);const result=calls[0].payload;
+ assert.equal(calls.length,1);assert.equal(calls[0].id,'1568419705893687459');assert.equal(directMessages.length,5);const result=calls[0].payload;
  assert.match(result.content,/CANDIDATURES ACCEPTÉES/);assert.match(result.content,/CANDIDATURES REFUSÉES/);assert.ok(result.content.includes(`<@${ids.candidate}>`));assert.ok(!result.content.includes('Motif privé'));
  assert.deepEqual(result.allowedMentions.users.sort(),[ids.candidate,ids.other].sort());assert.equal(result.content.length<2000,true);
  assert.equal((await request('/api/admin/applications/results',{})).body.sent,0);assert.equal(calls.length,1);
@@ -141,6 +143,8 @@ test('closed DMs do not lose an application or decision; notification retry is i
  const result=await request('/api/applications',recruitmentBody,ids.candidate);assert.equal(result.status,201);assert.equal(result.body.dmSent,false);
  const entry=state.applications[0];assert.equal(entry.notifications[0].status,'failed');
  assert.equal((await request('/api/admin/applications/'+entry.id,{status:'accepted',feedback:'Bienvenue !',revision:1})).status,200);assert.equal(entry.status,'accepted');
+ assert.equal((await request('/api/admin/applications/results',{})).body.dmFailed,1);
+ assert.equal((await request('/api/admin/applications/results')).body.pending,1);
  client.users.fetch=original;
  assert.equal((await request('/api/admin/applications/'+entry.id+'/notify',{})).body.dmSent,true);assert.equal(directMessages.length,1);
  assert.equal((await request('/api/admin/applications/'+entry.id+'/notify',{})).body.dmSent,true);assert.equal(directMessages.length,1);
@@ -154,16 +158,16 @@ test('detailed FiveM and Discord rules replace only the unchanged legacy templat
  content=(await request('/api/community')).body.content;assert.equal(content.rules[0].title,'Notre règle personnalisée');
  assert.ok((await request('/api/admin/content')).body.rulesTemplate.length>=18);
 }));
-test('automatic queue processing publishes pending results once and keeps confirmed chunks on partial failure',async()=>fixture(async({state,client,guild,calls,request})=>{
+test('manual result publication keeps confirmed groups on partial failure',async()=>fixture(async({state,client,guild,calls,request})=>{
  const {createRecruitmentService}=require('../src/recruitment');
  state.applications=Array.from({length:13},(_,i)=>({id:'candidate-'+i,userId:String(900000000000000000n+BigInt(i)),type:i%2?'animator':'helper',status:i%2?'rejected':'accepted',publicDecisionVersion:1}));
  const baseFetch=guild.channels.fetch;let sends=0;
  guild.channels.fetch=async id=>{const dest=await baseFetch(id);const send=dest.send;dest.send=async payload=>{sends++;if(sends===2)throw Error('Temporary failure');return send(payload);};return dest;};
  const service=createRecruitmentService({state,saveState:()=>{},client,guildId:ids.guild,publicUrl:'http://localhost'});
- await assert.rejects(service.processQueue(),/Temporary failure/);
+ await assert.rejects(service.flushResults(),/Temporary failure/);
  assert.equal(state.applications.filter(row=>row.publicResultPublishedVersion===1).length,12);assert.equal(calls.length,1);
  guild.channels.fetch=baseFetch;
- assert.equal((await service.processQueue()).sent,1);assert.equal(calls.length,2);assert.equal((await service.processQueue()).sent,0);
+ assert.equal((await service.flushResults()).sent,1);assert.equal(calls.length,2);assert.equal((await service.flushResults()).sent,0);
  assert.ok(!state.recruitmentResultsError);
 }));
 test('closing recruitment still takes effect when Discord announcements fail',async()=>fixture(async({state,guild,request})=>{
@@ -171,4 +175,36 @@ test('closing recruitment still takes effect when Discord announcements fail',as
  guild.channels.fetch=async()=>({guildId:ids.guild,type:ChannelType.GuildText,send:async()=>{throw Error('Discord unavailable');}});
  const response=await request('/api/admin/recruitment',{types:{helper:false,animator:false},revision:0});assert.equal(response.status,200);assert.ok(response.body.announcementError);assert.deepEqual(state.recruitmentSettings.types,{helper:false,animator:false});
  assert.equal((await request('/api/applications',recruitmentBody,ids.candidate)).status,409);
+}));
+test('final decisions are silent, previewed by name, and allow another test application immediately',async()=>fixture(async({state,request,directMessages,calls})=>{
+ await request('/api/applications',recruitmentBody,ids.candidate);const entry=state.applications[0];const initialDMs=directMessages.length;
+ const decision=await request('/api/admin/applications/'+entry.id,{status:'rejected',feedback:'',revision:1});
+ assert.equal(decision.status,200);assert.equal(decision.body.resultsQueued,true);assert.equal(directMessages.length,initialDMs);assert.equal(calls.length,0);
+ const preview=(await request('/api/admin/applications/results')).body;
+ assert.equal(preview.entries[0].id,entry.id);assert.equal(preview.entries[0].username,entry.username);assert.equal(preview.entries[0].status,'rejected');assert.equal(preview.entries[0].type,'helper');assert.ok(!Object.hasOwn(preview.entries[0],'feedback'));
+ const mine=(await request('/api/applications/mine',undefined,ids.candidate)).body[0];assert.equal(mine.status,'pending');assert.equal(mine.feedback,'');
+ assert.equal((await request('/api/applications',recruitmentBody,ids.candidate)).status,201); // no 24-hour cooldown
+ const publish=await request('/api/admin/applications/results',{selection:preview.entries.map(({id,version})=>({id,version}))});
+ assert.equal(publish.body.sent,1);assert.equal(publish.body.dmSent,1);assert.equal(calls[0].id,'1568419705893687459');assert.equal(directMessages.length,initialDMs+2); // new receipt + final result
+ assert.match(directMessages.at(-1).payload.content,/refusée/);
+}));
+test('a preview selection publishes only reviewed rows and rejects obsolete decisions',async()=>fixture(async({state,request,calls,directMessages})=>{
+ await request('/api/applications',recruitmentBody,ids.candidate);await request('/api/applications',recruitmentBody,ids.other);
+ const a=state.applications.find(row=>row.userId===ids.candidate),b=state.applications.find(row=>row.userId===ids.other);
+ await request('/api/admin/applications/'+a.id,{status:'accepted',feedback:'',revision:1});
+ const selection=(await request('/api/admin/applications/results')).body.entries.map(({id,version})=>({id,version}));
+ await request('/api/admin/applications/'+b.id,{status:'rejected',feedback:'',revision:1});
+ const result=await request('/api/admin/applications/results',{selection});assert.equal(result.body.sent,1);assert.equal((await request('/api/admin/applications/results')).body.pending,1);assert.ok(!calls[0].payload.content.includes(b.userId));
+ assert.equal((await request('/api/admin/applications/results',{selection})).status,409);assert.equal(calls.length,1);
+}));
+test('retrying failed final DMs never republishes the public announcement',async()=>fixture(async({state,client,request,calls,directMessages})=>{
+ await request('/api/applications',recruitmentBody,ids.candidate);const entry=state.applications[0];await request('/api/admin/applications/'+entry.id,{status:'accepted',feedback:'Bienvenue',revision:1});
+ const original=client.users.fetch;client.users.fetch=async()=>{throw Error('DM blocked');};
+ const first=await request('/api/admin/applications/results',{});assert.equal(first.body.sent,1);assert.equal(first.body.dmFailed,1);assert.equal(calls.length,1);
+ const preview=(await request('/api/admin/applications/results')).body;assert.equal(preview.entries[0].publicSent,true);assert.equal(preview.entries[0].dmStatus,'failed');
+ client.users.fetch=original;const retry=await request('/api/admin/applications/results',{});assert.equal(retry.body.sent,0);assert.equal(retry.body.dmSent,1);assert.equal(calls.length,1);assert.equal((await request('/api/admin/applications/results')).body.pending,0);
+}));
+test('legacy pending final notifications cannot bypass the Publish action',async()=>fixture(async({state,request,directMessages})=>{
+ state.applications=[{id:'legacy',userId:ids.candidate,status:'accepted',publicDecisionVersion:1,notifications:[{id:'old',kind:'accepted',status:'pending',content:'Do not send yet'}]}];
+ assert.equal((await request('/api/admin/applications/legacy/notify',{})).status,409);assert.equal(directMessages.length,0);
 }));

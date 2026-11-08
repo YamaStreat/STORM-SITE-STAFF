@@ -2,7 +2,7 @@ const {randomUUID,createHash}=require('node:crypto');
 const {ChannelType}=require('discord.js');
 const {brandedMessage}=require('./discord-branding');
 const TYPES=Object.freeze({helper:{label:'Helpeur',description:'Accompagner les joueurs, traiter les demandes et garder une attitude calme et impartiale.',question:'Un joueur mécontent conteste une décision et s’énerve dans un ticket. Comment l’accompagnes-tu ?'},animator:{label:'Animateur',description:'Imaginer et encadrer des événements accessibles, équitables et respectueux des règles.',question:'Propose un événement PVP : objectif, déroulement, règles, équité et gestion d’un imprévu.'}});
-const CHANNEL_ID='1568410724605239326',ROLE_ID='1564827474099966103';
+const CHANNEL_ID='1568410724605239326',ROLE_ID='1564827474099966103',RESULTS_CHANNEL_ID='1568419705893687459';
 const services=new WeakMap();
 function settingsFor(state,base){const fallback=Boolean(base?.open);const types=state.recruitmentSettings?.types||base?.types||{helper:fallback,animator:fallback};return{types:{helper:types.helper===true,animator:types.animator===true},revision:state.recruitmentSettings?.revision||0};}
 function createRecruitmentService({state,saveState,client,guildId,publicUrl}){
@@ -17,6 +17,7 @@ function createRecruitmentService({state,saveState,client,guildId,publicUrl}){
   entry.notifications||=[];entry.notifications.push(event);saveState();return event;
  }
  async function deliver(entry,event){
+  if(['accepted','rejected'].includes(event?.kind)&&(!event.decisionVersion||(entry.publicResultPublishedVersion||0)<event.decisionVersion))return false;
   if(event?.status==='sent')return true;
   if(!event||dmLocks.has(event.id))return false;
   dmLocks.add(event.id);event.attemptedAt=Date.now();
@@ -27,7 +28,7 @@ function createRecruitmentService({state,saveState,client,guildId,publicUrl}){
   catch(err){event.status='failed';event.error=err.code===50007?'Messages privés fermés':'Envoi Discord indisponible';return false;}
   finally{dmLocks.delete(event.id);saveState();}
  }
- async function channel(){const guild=await client.guilds.fetch(guildId);const value=await guild.channels.fetch(CHANNEL_ID);if(!value||value.guildId!==guildId||![ChannelType.GuildText,ChannelType.GuildAnnouncement].includes(value.type)){const err=new Error('Salon des recrutements inaccessible.');err.status=502;throw err;}return value;}
+ async function channel(id=CHANNEL_ID){const guild=await client.guilds.fetch(guildId);const value=await guild.channels.fetch(id);if(!value||value.guildId!==guildId||![ChannelType.GuildText,ChannelType.GuildAnnouncement].includes(value.type)){const err=new Error('Salon des recrutements inaccessible.');err.status=502;throw err;}return value;}
  async function updateSettings({types,revision,announce=false,base}){
   if(updating){const err=new Error('Une mise à jour des recrutements est déjà en cours.');err.status=409;throw err;}updating=true;
   try{
@@ -56,25 +57,45 @@ function createRecruitmentService({state,saveState,client,guildId,publicUrl}){
    return{...state.recruitmentSettings,announced:Boolean(messageId)};
   }finally{updating=false;}
  }
- async function flushResults(){
-  if(sendingResults)return{sent:0,pending:true};sendingResults=true;let count=0;
+ function decisionNotification(entry,version){
+  return entry.notifications?.findLast(event=>event.decisionVersion===version)||((entry.publicResultPublishedVersion||0)>=version?entry.notifications?.findLast(event=>event.kind===entry.status&&event.status==='sent'&&!event.decisionVersion):null);
+ }
+ function pendingResults(){
+  return (state.applications||[]).filter(entry=>['accepted','rejected'].includes(entry.status)&&entry.publicDecisionVersion&&((entry.publicResultPublishedVersion||0)<entry.publicDecisionVersion||decisionNotification(entry,entry.publicDecisionVersion)?.status!=='sent')).map(entry=>({id:entry.id,userId:entry.userId,username:entry.username||entry.userId,type:entry.type,status:entry.status,feedback:entry.feedback||'',version:entry.publicDecisionVersion,publicSent:(entry.publicResultPublishedVersion||0)>=entry.publicDecisionVersion,dmStatus:decisionNotification(entry,entry.publicDecisionVersion)?.status||'pending'}));
+ }
+ async function flushResults({selection}={}){
+  if(sendingResults){const error=new Error('Une publication est déjà en cours.');error.status=409;throw error;}
+  sendingResults=true;let count=0,dmSent=0,dmFailed=0;
   try{
-   const rows=(state.applications||[]).filter(row=>['accepted','rejected'].includes(row.status)&&row.publicDecisionVersion&&(row.publicResultPublishedVersion||0)<row.publicDecisionVersion).map(row=>({id:row.id,userId:row.userId,type:row.type,status:row.status,version:row.publicDecisionVersion}));
-   if(!rows.length){if(state.recruitmentResultsError){delete state.recruitmentResultsError;saveState();}return{sent:0};}
-   const dest=await channel();
-   // Each message contains a bounded group; only identities and decisions are public.
-   for(let offset=0;offset<rows.length;offset+=12){const batch=rows.slice(offset,offset+12);
+   let rows=pendingResults();
+   if(selection!==undefined){
+    if(!Array.isArray(selection)||selection.length>2000||new Set(selection.map(row=>row?.id)).size!==selection.length){const error=new Error('Sélection de résultats invalide.');error.status=400;throw error;}
+    rows=selection.map(selected=>{const current=rows.find(row=>row.id===selected?.id&&row.version===selected.version);if(!current){const error=new Error('Les résultats ont changé. Recharge la liste avant de publier.');error.status=409;throw error;}return current;});
+   }
+   if(!rows.length){delete state.recruitmentResultsError;saveState();return{sent:0,dmSent:0,dmFailed:0};}
+   const publicRows=rows.filter(row=>!row.publicSent);
+   const dest=publicRows.length?await channel(RESULTS_CHANNEL_ID):null;
+   for(let offset=0;offset<publicRows.length;offset+=12){
+    const batch=publicRows.slice(offset,offset+12);
     const sections=['accepted','rejected'].map(status=>{const entries=batch.filter(row=>row.status===status);return entries.length?`### ${status==='accepted'?'✅ CANDIDATURES ACCEPTÉES':'❌ CANDIDATURES REFUSÉES'}\n${entries.map(row=>`> ➜ <@${row.userId}> — **${typeLabel(row)}**`).join('\n')}`:'';}).filter(Boolean);
     const content=`# 📋・RÉSULTATS DES RECRUTEMENTS — STØRM PVP\n\n${sections.join('\n\n')}\n\nLes retours détaillés sont disponibles dans votre suivi privé. Un MP est également envoyé lorsque vos paramètres Discord le permettent : ${link()}\n\n**STØRM PVP ・ Équipe de recrutement**`;
     const nonce=createHash('sha256').update(batch.map(row=>row.id+':'+row.version).join('|')).digest('hex').slice(0,24);
     const sent=await dest.send({content,allowedMentions:{parse:[],users:[...new Set(batch.map(row=>row.userId))]},nonce,enforceNonce:true});
-    for(const snapshot of batch){const entry=state.applications.find(row=>row.id===snapshot.id);if(entry)entry.publicResultPublishedVersion=snapshot.version;}
-    state.recruitmentBatches||=[];state.recruitmentBatches.unshift({id:sent.id,createdAt:Date.now(),entries:batch});state.recruitmentBatches=state.recruitmentBatches.slice(0,100);saveState();count+=batch.length;
+    for(const snapshot of batch){const entry=state.applications.find(row=>row.id===snapshot.id);if(entry){entry.publicResultPublishedVersion=snapshot.version;entry.publishedOutcome={status:snapshot.status,feedback:snapshot.feedback};}}
+    state.recruitmentBatches||=[];state.recruitmentBatches.unshift({id:sent.id,createdAt:Date.now(),entries:batch.map(({feedback,...row})=>row)});state.recruitmentBatches=state.recruitmentBatches.slice(0,100);saveState();count+=batch.length;
    }
-   delete state.recruitmentResultsError;saveState();return{sent:count};
-  }catch(err){state.recruitmentResultsError='Publication des résultats indisponible. Vérifie le salon et les permissions du bot.';saveState();throw err;}finally{sendingResults=false;}
+   for(const snapshot of rows){
+    const entry=state.applications.find(row=>row.id===snapshot.id);
+    if(!entry||(entry.publicResultPublishedVersion||0)<snapshot.version)continue;
+    let event=decisionNotification(entry,snapshot.version);
+    if(!event){event=queueDM(entry,snapshot.status,snapshot.feedback);event.decisionVersion=snapshot.version;saveState();}
+    if(await deliver(entry,event))dmSent++;else dmFailed++;
+   }
+   delete state.recruitmentResultsError;saveState();return{sent:count,dmSent,dmFailed};
+  }catch(err){state.recruitmentResultsError='Publication interrompue. Les envois confirmés sont conservés ; clique sur Publier pour reprendre.';saveState();throw err;}
+  finally{sendingResults=false;}
  }
- async function processQueue(){for(const entry of state.applications||[])for(const event of entry.notifications||[])if(event.status==='pending')await deliver(entry,event);return flushResults();}
- const service={queueDM,deliver,updateSettings,flushResults,processQueue};services.set(state,service);return service;
+
+ const service={queueDM,deliver,updateSettings,flushResults,pendingResults};services.set(state,service);return service;
 }
-module.exports={TYPES,CHANNEL_ID,ROLE_ID,settingsFor,createRecruitmentService};
+module.exports={TYPES,CHANNEL_ID,RESULTS_CHANNEL_ID,ROLE_ID,settingsFor,createRecruitmentService};

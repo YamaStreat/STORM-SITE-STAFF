@@ -7,7 +7,6 @@ const session = require('express-session');
 const crypto = require('crypto');
 const { installPanel, CHANNELS, NOTIFY_ROLES } = require('./panel');
 const { auditEvent } = require('./community');
-const { createRecruitmentService } = require('./recruitment');
 const { cacheBrandAssets } = require('./branding');
 const {
   Client,
@@ -766,9 +765,7 @@ client.once(Events.ClientReady, async c => {
   await registerCommands().catch(err => console.error('[STORM] Commandes:', err));
   setInterval(giveawayLoop, 15000);
   giveawayLoop().catch(console.error);
-  const recruitmentQueue = createRecruitmentService({state,saveState,client,guildId:GUILD_ID,publicUrl:PUBLIC_URL});
-  recruitmentQueue.processQueue().catch(err=>console.error('[STORM RECRUTEMENT]',err.message));
-  setInterval(()=>recruitmentQueue.processQueue().catch(err=>console.error('[STORM RECRUTEMENT]',err.message)),60000).unref?.();
+  // Recruitment decisions are published only through the explicit staff action.
 });
 
 client.on(Events.MessageCreate, async message => {

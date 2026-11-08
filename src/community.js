@@ -68,7 +68,11 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
   app.get('/api/community',(req,res)=>res.json({content:content(),revision:state.contentRevision||0,recruitmentTypes:TYPES,rulesVersion:RULES_VERSION}));
   app.get('/api/applications/mine',route(async(req,res)=>{
     const applicant=user(req);res.set('Cache-Control','no-store');
-    res.json((state.applications||[]).filter(row=>row.userId===applicant.id).map(({id,type,status,createdAt,updatedAt,feedback,revision,notifications})=>({id,type,status,createdAt,updatedAt,feedback,revision,notificationStatus:notifications?.at(-1)?.status||null})));
+    res.json((state.applications||[]).filter(row=>row.userId===applicant.id).map(row=>{
+      const unpublished=['accepted','rejected'].includes(row.status)&&row.publicDecisionVersion>(row.publicResultPublishedVersion||0);
+      const visible=unpublished?(row.publishedOutcome||row.preparedFrom||{status:'reviewing',feedback:''}):row;
+      return{id:row.id,type:row.type,status:visible.status,feedback:visible.feedback,createdAt:row.createdAt,updatedAt:row.updatedAt,revision:row.revision,notificationStatus:row.notifications?.findLast(event=>!['accepted','rejected'].includes(event.kind)||event.status==='sent')?.status||null};
+    }));
   }));
   app.post('/api/applications',route(async(req,res)=>{
     origin(req);const applicant=user(req);
@@ -84,7 +88,7 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
     await (await client.guilds.fetch(guildId)).members.fetch({user:applicant.id,force:true}).catch(e=>{if(e.code===10007)error(403,'Rejoins le serveur Discord avant de candidater.');throw e;});
     if(!content().recruitment.types[type])error(409,'Ce recrutement vient de fermer.');
     state.applications||=[];
-    if(state.applications.some(row=>row.userId===applicant.id&&(['pending','reviewing'].includes(row.status)||row.createdAt>Date.now()-86400000)))error(409,'Tu as déjà une candidature en cours ou envoyée depuis moins de 24 heures.');
+    if(state.applications.some(row=>row.userId===applicant.id&&['pending','reviewing'].includes(row.status)))error(409,'Tu as déjà une candidature en cours d’étude.');
     if(state.applications.length>=2000)error(503,'Le formulaire est temporairement indisponible. Contacte l’équipe.');
     const entry={id:randomUUID(),userId:applicant.id,username:applicant.username,type,scenario,weeklyHours,rulesVersion:RULES_VERSION,motivation,availability,experience,status:'pending',feedback:'',createdAt:Date.now(),updatedAt:Date.now(),revision:1};
     state.applications.unshift(entry);saveState();
@@ -128,23 +132,26 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
   app.post('/api/admin/recruitment',requireStaff,route(async(req,res)=>{
     const result=await recruitment.updateSettings({...req.body,base:(state.communityContent||DEFAULT_CONTENT).recruitment});res.json({ok:true,...result});
   }));
-  app.get('/api/admin/applications/results',requireStaff,route(async(req,res)=>res.json({pending:(state.applications||[]).filter(row=>['accepted','rejected'].includes(row.status)&&row.publicDecisionVersion&&(row.publicResultPublishedVersion||0)<row.publicDecisionVersion).length,lastError:state.recruitmentResultsError||null,batches:(state.recruitmentBatches||[]).slice(0,10)})));
-  app.post('/api/admin/applications/results',requireStaff,route(async(req,res)=>res.json({ok:true,...await recruitment.flushResults()})));
+  app.get('/api/admin/applications/results',requireStaff,route(async(req,res)=>{const entries=recruitment.pendingResults().map(({feedback,...row})=>row);res.json({pending:entries.length,entries,lastError:state.recruitmentResultsError||null,batches:(state.recruitmentBatches||[]).slice(0,10)});}));
+  app.post('/api/admin/applications/results',requireStaff,route(async(req,res)=>res.json({ok:true,...await recruitment.flushResults({selection:req.body.selection})})));
   app.post('/api/admin/applications/:id/notify',requireStaff,route(async(req,res)=>{
     const entry=(state.applications||[]).find(row=>row.id===req.params.id);if(!entry)error(404,'Candidature introuvable.');
     const event=entry.notifications?.at(-1);if(!event)error(409,'Aucune notification disponible.');
+    if(['accepted','rejected'].includes(event.kind)&&(!event.decisionVersion||(entry.publicResultPublishedVersion||0)<event.decisionVersion))error(409,'Publie les résultats en attente avant de notifier une décision finale.');
     const dmSent=await recruitment.deliver(entry,event);res.json({ok:true,dmSent});
   }));
   app.get('/api/admin/applications',requireStaff,route(async(req,res)=>res.json(state.applications||[])));
   app.post('/api/admin/applications/:id',requireStaff,route(async(req,res)=>{
     const entry=(state.applications||[]).find(row=>row.id===req.params.id);if(!entry)error(404,'Candidature introuvable.');checkRevision(entry,req);
     if(!['reviewing','accepted','rejected'].includes(req.body.status))error(400,'Décision invalide.');
-    const feedback=text(req.body.feedback,1500,req.body.status==='reviewing'?0:3);
+    const feedback=text(req.body.feedback||'',1500,0);
     const statusChanged=entry.status!==req.body.status;
     if(!statusChanged&&entry.feedback===feedback)return res.json({ok:true,unchanged:true});
+    if(statusChanged&&['accepted','rejected'].includes(req.body.status)&&['pending','reviewing'].includes(entry.status))entry.preparedFrom={status:entry.status,feedback:entry.feedback||''};
     entry.status=req.body.status;entry.feedback=feedback;entry.reviewedBy=req.session.user.id;entry.updatedAt=Date.now();entry.revision++;
     if(statusChanged&&['accepted','rejected'].includes(entry.status))entry.publicDecisionVersion=(entry.publicDecisionVersion||0)+1;
     saveState();
+    if(['accepted','rejected'].includes(entry.status))return res.json({ok:true,dmSent:false,resultsQueued:true});
     const notification=recruitment.queueDM(entry,entry.status,feedback);
     const dmSent=await recruitment.deliver(entry,notification);
     res.json({ok:true,dmSent,resultsQueued:['accepted','rejected'].includes(entry.status)});
