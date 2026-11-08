@@ -7,6 +7,7 @@ const session = require('express-session');
 const crypto = require('crypto');
 const { installPanel, CHANNELS, NOTIFY_ROLES } = require('./panel');
 const { auditEvent } = require('./community');
+const { createMemberOnboarding } = require('./member-onboarding');
 const { cacheBrandAssets } = require('./branding');
 const {
   Client,
@@ -83,6 +84,7 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions,
@@ -92,7 +94,10 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User]
 });
 
+const memberOnboarding = createMemberOnboarding({ client, state, saveState, guildId: GUILD_ID, publicUrl: PUBLIC_URL });
+
 const commands = [
+  new SlashCommandBuilder().setName('accueil').setDescription('Publie ou actualise le message de bienvenue et le règlement avec acceptation').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Configure STORM SYSTEM et publie le panel de tickets')
@@ -765,8 +770,11 @@ client.once(Events.ClientReady, async c => {
   await registerCommands().catch(err => console.error('[STORM] Commandes:', err));
   setInterval(giveawayLoop, 15000);
   giveawayLoop().catch(console.error);
+  memberOnboarding.publish().catch(err => console.error('[STORM ACCUEIL]', err.message));
   // Recruitment decisions are published only through the explicit staff action.
 });
+
+client.on(Events.GuildMemberAdd, member => memberOnboarding.onJoin(member).catch(err => console.error('[STORM ACCUEIL]', err.message)));
 
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
@@ -813,7 +821,19 @@ client.on(Events.MessageCreate, async message => {
 
 client.on(Events.InteractionCreate, async interaction => {
   try {
+    if (interaction.isButton() && await memberOnboarding.accept(interaction)) return;
     if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === 'accueil') {
+        if (interaction.guildId !== GUILD_ID || !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) return interaction.reply({content:'Commande réservée aux administrateurs du serveur configuré.',ephemeral:true});
+        await interaction.deferReply({ephemeral:true});
+        try {
+          const result = await memberOnboarding.publish();
+          return interaction.editReply(`✅ Accueil et règlement actualisés (${result.rulesMessages} messages).`);
+        } catch (err) {
+          console.error('[STORM ACCUEIL]', err.message);
+          return interaction.editReply('❌ Publication impossible. Vérifie les salons configurés, les permissions Envoyer des messages, Intégrer des liens, Joindre des fichiers et Gérer les rôles, ainsi que la hiérarchie des deux rôles d’accès.');
+        }
+      }
       if (interaction.commandName === 'ping') return interaction.reply({ content: `⚡ Pong • ${client.ws.ping} ms`, ephemeral: true });
       if (interaction.commandName === 'setup') return createSetup(interaction);
       if (!(await ensureSetup(interaction.guild, interaction))) return;

@@ -15,7 +15,7 @@ test('complete application starts offline and serves public API, assets and fixe
   const guildId = '111111111111111111', ownerId = '222222222222222222';
   const guild = { ownerId, members: {fetch: async () => ({id:ownerId,roles:{cache:new Map()}})} };
   class TestClient extends discord.Client {
-    constructor(options) { super(options); this.guilds.fetch = async () => guild; this.channels.fetch = async id => ({guildId, isTextBased:()=>true, send:async payload => {sent.push({id,payload});return {id:'777777777777777777',react:async()=>{}};}}); }
+    constructor(options) { super(options); assert.ok(options.intents.includes(discord.GatewayIntentBits.GuildMembers)); this.guilds.fetch = async () => guild; this.channels.fetch = async id => ({guildId, isTextBased:()=>true, send:async payload => {sent.push({id,payload});return {id:'777777777777777777',react:async()=>{}};}}); }
     login() { return Promise.resolve(); }
   }
   const fakeExpress = () => {

@@ -186,3 +186,18 @@ Les annonces d’ouverture des recrutements et le message de statut du serveur u
 Les PNG locaux `public/assets/storm-round.png` et `public/assets/storm-wordmark.png` sont joints aux messages lorsque disponibles, pour que leurs images restent hébergées dans Discord. Si une copie locale manque, les liens d’origine sont utilisés. Le bot doit disposer des permissions **Intégrer des liens** et **Joindre des fichiers** dans les salons concernés. Conserver les fichiers de `public/assets/` pendant la mise à jour.
 
 Pour actualiser un ancien message : utiliser **Renvoyer l’annonce actuelle** dans Candidatures et **Publier / actualiser le message Discord** dans Serveur. Le message de statut existant est modifié sans doublon ; ses anciennes pièces jointes sont remplacées à chaque actualisation.
+
+## Bienvenue et acceptation du règlement
+
+Le bot publie ou actualise au démarrage :
+
+- Un message d’accueil avec les logos STØRM dans `1564691566722031767`.
+- Le règlement complet dans `1564691736893202473`, réparti en plusieurs messages pour respecter les limites Discord. Le dernier contient **J’accepte le règlement**.
+
+À chaque arrivée d’un membre humain, il attribue le rôle d’attente `1569015388514164822`, puis envoie un message de bienvenue personnalisé. L’acceptation du bouton officiel attribue d’abord le rôle membre `1564827474099966103`, puis retire le rôle d’attente. Si l’attribution échoue, le rôle d’attente n’est pas retiré. En cas d’échec partiel, le membre peut cliquer de nouveau. Un bouton copié, ancien ou utilisé dans un autre salon/serveur ne donne aucun rôle.
+
+**À configurer avant de redémarrer :** dans Discord Developer Portal → application → Bot → Privileged Gateway Intents, activer **Server Members Intent**. Le code demande maintenant cet intent pour recevoir les arrivées. Le bot doit avoir **Gérer les rôles** et son rôle doit être placé au-dessus des deux rôles concernés. Dans les salons d’accueil et de règlement, autoriser Voir le salon, Lire l’historique, Envoyer des messages, Intégrer des liens et Joindre des fichiers. Le rôle d’attente doit pouvoir voir le règlement et cliquer sur ses boutons ; configurer les accès aux autres salons selon le rôle membre souhaité.
+
+La commande administrateur **`/accueil`** publie ou actualise ces messages à la demande, sans dépendre de `/setup`. Les identifiants des messages sont conservés dans `data/state.json` et réutilisés après redémarrage pour éviter les doublons. Les règles personnalisées enregistrées dans Pages publiques sont utilisées ; sinon, le règlement FiveM/Discord détaillé par défaut est publié. Après une modification du règlement ou des logos, `/accueil` permet de les synchroniser.
+
+Cette mise à jour ne distribue pas rétroactivement de rôle d’attente à tous les membres existants. Ils peuvent accepter le règlement via le bouton officiel. Les tests utilisent des membres et messages simulés ; le premier envoi réel aura lieu au démarrage du bot sur Gamost.
