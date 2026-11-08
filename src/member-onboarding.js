@@ -1,29 +1,21 @@
 const { PermissionFlagsBits, ChannelType } = require('discord.js');
 const { brandedMessage } = require('./discord-branding');
-const { RULES, LEGACY_RULES, RULES_VERSION } = require('./rules');
+const { RULES_VERSION } = require('./rules');
 const WELCOME_CHANNEL = '1564691566722031767';
 const RULES_CHANNEL = '1564691736893202473';
 const PENDING_ROLE = '1569015388514164822';
 const MEMBER_ROLE = '1564827474099966103';
 const ACCEPT_ID = 'storm:accept-rules:v1';
 
-function rulesMessages(publicUrl, rules = RULES) {
-  const messages = [brandedMessage({title:'📜 RÈGLEMENT OFFICIEL — STØRM PVP',description:'**Une communauté. Du respect. Un jeu loyal.**\nPrends le temps de lire les règles Discord et FiveM ci-dessous avant de rejoindre la tempête.',fields:[{name:'🔎 Comment obtenir ton accès ?',value:'Lis tous les messages du règlement, puis clique sur **J’accepte le règlement** au bas du dernier message. Ton rôle d’attente sera remplacé par le rôle membre.'}]},{links:[{label:'Lire sur le site',url:new URL('/reglement',publicUrl).href}]})];
-  let fields=[],size=0;
-  const flush=()=>{if(fields.length){messages.push(brandedMessage({title:`📖 STØRM PVP · Règlement (${messages.length})`,fields}));fields=[];size=0;}};
-  for(const rule of rules){
-    const chunks=rule.text.match(/[\s\S]{1,1024}/g)||[];
-    for(let i=0;i<chunks.length;i++){
-      const field={name:rule.title+(i?' · suite':''),value:chunks[i],inline:false};
-      if(fields.length>=8||size+field.name.length+field.value.length>4500)flush();
-      fields.push(field);size+=field.name.length+field.value.length;
-    }
-  }
-  flush();
-  const acceptance=brandedMessage({title:'✅ PRÊT À REJOINDRE LA TEMPÊTE ?',description:'En cliquant ci-dessous, tu confirmes avoir lu et accepté le règlement STØRM PVP.\n\nTon rôle membre te sera attribué et le rôle d’attente sera retiré. Si tu as une question, contacte l’équipe avant de valider.'},{links:[{label:'Règlement complet',url:new URL('/reglement',publicUrl).href}]});
-  acceptance.components.push({type:1,components:[{type:2,style:3,custom_id:ACCEPT_ID,label:'J’accepte le règlement',emoji:{name:'✅'}}]});
-  messages.push(acceptance);return messages;
+function rulesMessages(publicUrl) {
+  const payload=brandedMessage({
+    title:'📜 RÈGLEMENT — STØRM PVP',
+    description:'**Bienvenue dans la communauté STØRM.**\n\nLe règlement Discord et FiveM est disponible sur notre site. Prends le temps de le lire avant de demander ton accès membre.\n\n**1.** Clique sur **Lire le règlement** pour ouvrir le site.\n**2.** Reviens ici, puis clique sur **J’accepte le règlement**.\n\nEn acceptant, tu confirmes avoir lu et accepté les règles. Ton rôle membre sera attribué et ton rôle d’attente retiré.'
+  },{links:[{label:'Lire le règlement',url:new URL('/reglement',publicUrl).href}]});
+  payload.components.push({type:1,components:[{type:2,style:3,custom_id:ACCEPT_ID,label:'J’accepte le règlement',emoji:{name:'✅'}}]});
+  return [payload];
 }
+
 function createMemberOnboarding({client,state,saveState,guildId,publicUrl}) {
   const locks=new Set();let syncing=false;
   const storage=()=>{state.memberOnboarding||={};state.memberOnboarding.rulesMessageIds||=[];return state.memberOnboarding;};
@@ -40,7 +32,7 @@ function createMemberOnboarding({client,state,saveState,guildId,publicUrl}) {
   }
   function welcomePayload(member){
     const user=member?`<@${member.id}>`:'à toute la communauté';
-    const payload=brandedMessage({title:member?'⚡ BIENVENUE DANS LA TEMPÊTE !':'⚡ BIENVENUE SUR STØRM PVP',description:`Bienvenue ${user} !\n**Ton aventure dans la communauté STØRM commence ici.**\nUn espace pour le PVP, la compétition et les bons moments ensemble.`,fields:[{name:'📜 Première étape',value:`Lis le règlement dans <#${RULES_CHANNEL}> puis clique sur **J’accepte le règlement** pour recevoir ton accès membre.`},{name:'🤝 Fais connaissance',value:'Reste respectueux, découvre les annonces et n’hésite pas à échanger avec la communauté.'},{name:'🛠️ Le projet avance',value:'Le statut actuel et les prochaines étapes sont disponibles sur notre site. Si tu as besoin d’aide, utilise les tickets Discord.'}]},{content:member?`Bienvenue <@${member.id}> 👋`:'',links:[{label:'Lire et accepter le règlement',url:`https://discord.com/channels/${guildId}/${RULES_CHANNEL}`},{label:'Découvrir STØRM',url:new URL('/',publicUrl).href}]});
+    const payload=brandedMessage({title:member?'⚡ BIENVENUE DANS LA TEMPÊTE !':'⚡ BIENVENUE SUR STØRM PVP',description:`Bienvenue ${user} !\n**Ton aventure dans la communauté STØRM commence ici.**\nUn espace pour le PVP, la compétition et les bons moments ensemble.`,fields:[{name:'📜 Première étape',value:`Ouvre le lien du règlement sur le site depuis <#${RULES_CHANNEL}>, puis clique sur **J’accepte le règlement** pour recevoir ton accès membre.`},{name:'🤝 Fais connaissance',value:'Reste respectueux, découvre les annonces et n’hésite pas à échanger avec la communauté.'},{name:'🛠️ Le projet avance',value:'Le statut actuel et les prochaines étapes sont disponibles sur notre site. Si tu as besoin d’aide, utilise les tickets Discord.'}]},{content:member?`Bienvenue <@${member.id}> 👋`:'',links:[{label:'Lire et accepter le règlement',url:`https://discord.com/channels/${guildId}/${RULES_CHANNEL}`},{label:'Découvrir STØRM',url:new URL('/',publicUrl).href}]});
     payload.allowedMentions={parse:[],users:member?[member.id]:[]};return payload;
   }
   async function publish(){
@@ -48,14 +40,22 @@ function createMemberOnboarding({client,state,saveState,guildId,publicUrl}) {
     try{
       const guild=await client.guilds.fetch(guildId),rules=await channel(guild,RULES_CHANNEL),welcome=await channel(guild,WELCOME_CHANNEL);
       await editableRole(guild,PENDING_ROLE);await editableRole(guild,MEMBER_ROLE);
-      const configured=state.communityContent?.rules;
-      const currentRules=configured&&JSON.stringify(configured)!==JSON.stringify(LEGACY_RULES)?configured:RULES;
-      const saved=storage(),payloads=rulesMessages(publicUrl,currentRules);
-      for(let index=0;index<payloads.length;index++){const message=await syncMessage(rules,saved.rulesMessageIds[index],payloads[index]);saved.rulesMessageIds[index]=message.id;saveState();}
-      for(const id of saved.rulesMessageIds.slice(payloads.length)){const message=await rules.messages.fetch(id).catch(e=>{if(e.code===10008)return null;throw e;});if(message?.author?.id===client.user.id)await message.edit({components:[]});}
-      saved.rulesMessageIds=saved.rulesMessageIds.slice(0,payloads.length);saved.rulesVersion=RULES_VERSION;saveState();
+      const saved=storage(),payload=rulesMessages(publicUrl)[0];
+      const oldIds=[...saved.rulesMessageIds];
+      const canonical=await syncMessage(rules,oldIds[0],payload);
+      saved.rulesCleanupIds=[...new Set([...(saved.rulesCleanupIds||[]),...oldIds.slice(1)])].filter(id=>id!==canonical.id);
+      // Switch the trusted button immediately, even if cleanup needs a later retry.
+      saved.rulesMessageIds=[canonical.id];saved.rulesVersion=RULES_VERSION;saveState();
+      for(const id of [...saved.rulesCleanupIds]){
+        const previous=await rules.messages.fetch(id).catch(e=>{if(e.code===10008)return null;throw e;});
+        if(previous){
+          if(previous.author?.id!==client.user.id)throw Error('Nettoyage interrompu : un ancien message n’appartient pas au bot.');
+          await previous.delete().catch(e=>{if(e.code!==10008)throw e;});
+        }
+        saved.rulesCleanupIds=saved.rulesCleanupIds.filter(value=>value!==id);saveState();
+      }
       const message=await syncMessage(welcome,saved.welcomeMessageId,welcomePayload());saved.welcomeMessageId=message.id;saveState();
-      return {rulesMessages:payloads.length};
+      return {rulesMessages:1};
     }finally{syncing=false;}
   }
   async function onJoin(member){

@@ -192,13 +192,13 @@ Pour actualiser un ancien message : utiliser **Renvoyer l’annonce actuelle** d
 Le bot publie ou actualise au démarrage :
 
 - Un message d’accueil avec les logos STØRM dans `1564691566722031767`.
-- Le règlement complet dans `1564691736893202473`, réparti en plusieurs messages pour respecter les limites Discord. Le dernier contient **J’accepte le règlement**.
+- Un seul message dans `1564691736893202473`, avec un bouton **Lire le règlement** vers `/reglement` et un bouton **J’accepte le règlement**. Le texte intégral reste uniquement sur le site.
 
 À chaque arrivée d’un membre humain, il attribue le rôle d’attente `1569015388514164822`, puis envoie un message de bienvenue personnalisé. L’acceptation du bouton officiel attribue d’abord le rôle membre `1564827474099966103`, puis retire le rôle d’attente. Si l’attribution échoue, le rôle d’attente n’est pas retiré. En cas d’échec partiel, le membre peut cliquer de nouveau. Un bouton copié, ancien ou utilisé dans un autre salon/serveur ne donne aucun rôle.
 
 **À configurer avant de redémarrer :** dans Discord Developer Portal → application → Bot → Privileged Gateway Intents, activer **Server Members Intent**. Le code demande maintenant cet intent pour recevoir les arrivées. Le bot doit avoir **Gérer les rôles** et son rôle doit être placé au-dessus des deux rôles concernés. Dans les salons d’accueil et de règlement, autoriser Voir le salon, Lire l’historique, Envoyer des messages, Intégrer des liens et Joindre des fichiers. Le rôle d’attente doit pouvoir voir le règlement et cliquer sur ses boutons ; configurer les accès aux autres salons selon le rôle membre souhaité.
 
-La commande administrateur **`/accueil`** publie ou actualise ces messages à la demande, sans dépendre de `/setup`. Les identifiants des messages sont conservés dans `data/state.json` et réutilisés après redémarrage pour éviter les doublons. Les règles personnalisées enregistrées dans Pages publiques sont utilisées ; sinon, le règlement FiveM/Discord détaillé par défaut est publié. Après une modification du règlement ou des logos, `/accueil` permet de les synchroniser.
+La commande administrateur **`/accueil`** publie ou actualise ces messages à la demande, sans dépendre de `/setup`. Les identifiants des messages sont conservés dans `data/state.json` et réutilisés après redémarrage pour éviter les doublons. Le règlement complet, y compris les règles personnalisées enregistrées dans Pages publiques, reste consultable sur le site. Il n’est plus recopié dans Discord. `/accueil` permet d’actualiser le lien et les logos.
 
 Cette mise à jour ne distribue pas rétroactivement de rôle d’attente à tous les membres existants. Ils peuvent accepter le règlement via le bouton officiel. Les tests utilisent des membres et messages simulés ; le premier envoi réel aura lieu au démarrage du bot sur Gamost.
 
@@ -214,3 +214,7 @@ Le bot récupère d’abord la liste complète des membres, puis tient les compt
 Les changements sont regroupés sur 10 secondes et les salons ne sont renommés que si nécessaire. Discord limite les renommages rapprochés : le client attend automatiquement les créneaux autorisés ; plusieurs arrivées simultanées peuvent donc apparaître comme une seule actualisation. Une erreur déclenche une nouvelle tentative après une minute, sans bloquer l’accueil ni l’attribution des rôles.
 
 Le bot doit avoir **Gérer les salons** dans ces deux salons vocaux et **Server Members Intent** doit rester activé dans Discord Developer Portal → Bot. Les compteurs n’altèrent ni les permissions, ni la catégorie, ni les autres réglages des salons. Transférer le dossier `src/` complet puis redémarrer pour activer le calcul initial.
+
+### Remplacement de l’ancien règlement détaillé
+
+Au redémarrage ou via `/accueil`, le bot transforme son premier message enregistré en invitation à lire le site, puis supprime uniquement ses anciens messages de règlement dont les identifiants étaient conservés dans `data/state.json`. Il ne parcourt pas le salon pour supprimer les messages d’autres personnes. Les anciens boutons ne sont plus reconnus. Si un retrait échoue, les identifiants restants sont conservés pour une nouvelle tentative, tandis que seul le bouton du message compact reste valide. Les rôles d’attente et de membre fonctionnent comme auparavant.
