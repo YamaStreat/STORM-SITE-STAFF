@@ -221,8 +221,18 @@ Au redémarrage ou via `/accueil`, le bot transforme son premier message enregis
 
 ## Visibilité des recrutements
 
-Un encart placé en haut de l’accueil et sur la page Candidatures indique explicitement l’état de chaque poste : badge vert **OUVERT**, badge rouge **FERMÉ**, nombre de postes ouverts et bouton Candidater uniquement lorsque le poste est disponible. Quand tout est fermé, le suivi des candidatures reste accessible.
+Un seul encart, sur la page Candidatures, indique explicitement l’état de chaque poste : badge vert **OUVERT**, badge rouge **FERMÉ**, nombre de postes ouverts et bouton Candidater uniquement lorsque le poste est disponible. Quand tout est fermé, le suivi des candidatures reste accessible.
 
 Les états sont lus dans les réglages réels du panel et actualisés toutes les 30 secondes ainsi qu’au retour sur l’onglet. Sur la page Candidatures, une fermeture retire le poste du sélecteur et masque le formulaire si tous les postes ferment ; les réponses déjà saisies ne sont pas effacées. Si le statut ne peut pas être récupéré, l’encart affiche « Statut temporairement indisponible » et ne présente pas une fermeture comme certaine.
 
+Le lien **Candidatures staff** se trouve à côté de Rejoindre le Discord et Voir les actualités dans le bloc principal de l’accueil ; le lien placé tout en bas a été retiré. Les anciennes cartes de poste sous l’encart de la page Candidatures ont été retirées pour éviter une double présentation.
+
 Pour déployer cet affichage, transférer le dossier `public/` complet, notamment `recruitment-spotlight.js` et `recruitment-spotlight.css`, puis recharger le site avec Ctrl+F5. Aucun changement des permissions, des campagnes Discord ou de la publication manuelle des résultats n’est nécessaire.
+
+## Formulaire de candidature enrichi et conditions de rédaction
+
+Le formulaire demande désormais l’âge en années (pas la date de naissance), le nombre total d’heures FiveM, le parcours de jeu, les qualités et points de progression, la réaction à un désaccord avec un autre staff et les sanctions éventuelles, en plus des questions de motivation, d’expérience, de disponibilités et de mise en situation. Les nouvelles réponses sont validées côté serveur et visibles uniquement dans les dossiers accessibles à l’équipe autorisée. Les anciens dossiers sont conservés et indiquent les informations non recueillies par leur version du formulaire.
+
+Les conditions interdisent les réponses produites par une IA, le copier-coller et les informations mensongères, et rappellent la neutralité et la confidentialité attendues du staff. Une case obligatoire fait confirmer leur acceptation ; le serveur enregistre la version des conditions et l’horodatage de l’engagement. Cette attestation ne constitue pas un détecteur automatique d’IA : l’équipe examine les réponses et peut demander des précisions. Aucun âge minimum de recrutement n’a été décidé automatiquement ; le champ vérifie seulement un âge numérique cohérent.
+
+Cette modification touche `src/` et `public/` : mettre à jour les deux dossiers complets sur Gamost, conserver `.env`, `data/` et les logos locaux, redémarrer puis recharger avec Ctrl+F5 pour obtenir les nouvelles questions et leur validation.

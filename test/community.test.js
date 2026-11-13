@@ -4,6 +4,7 @@ const express=require('express');
 const {installPanel,PERMISSIONS,CHANNELS}=require('../src/panel');
 const {DEFAULT_CONTENT,supportStats}=require('../src/community');
 const {ChannelType}=require('discord.js');
+const applicationProfile={age:19,fivemHours:450,gameExperience:'J’ai découvert plusieurs modes PVP et participé à des événements.',qualities:'Patient et organisé, je travaille encore ma prise de parole.',teamwork:'Je discute calmement en privé, je présente les faits puis je demande un arbitrage si nécessaire.',history:'Non',conditionsAccepted:true};
 const ids={owner:'111111111111111111',author:'222222222222222222',reviewer:'333333333333333333',candidate:'444444444444444444',other:'555555555555555555',role:'666666666666666666',reviewRole:'777777777777777777',guild:'888888888888888888'};
 async function fixture(fn){
  const state={siteConfig:{development:true},tickets:{},appeals:{},moderation:[]};
@@ -34,7 +35,7 @@ test('public content is editable with revisions, validated URLs, and a separate 
  assert.ok(!JSON.stringify(state.audit).includes('Un projet de communauté'));
 }));
 test('applications require membership, consent and login, prevent duplicates, and keep tracking private',async()=>fixture(async({state,request})=>{
- const body={type:'helper',scenario:'Je reste calme et je prends le temps de comprendre le problème.',weeklyHours:8,motivation:'Je souhaite aider la communauté et accompagner les nouveaux joueurs.',experience:'Gestion de communauté',availability:'Les soirs et le week-end',rulesAccepted:true};
+ const body={...applicationProfile,type:'helper',scenario:'Je reste calme et je prends le temps de comprendre le problème.',weeklyHours:8,motivation:'Je souhaite aider la communauté et accompagner les nouveaux joueurs.',experience:'Gestion de communauté',availability:'Les soirs et le week-end',rulesAccepted:true};
  assert.equal((await request('/api/applications',body,null)).status,401);
  assert.equal((await request('/api/applications',body,ids.candidate,'https://elsewhere.example')).status,403);
  assert.equal((await request('/api/applications',{...body,rulesAccepted:false},ids.candidate)).status,400);
@@ -100,10 +101,10 @@ test('approved patch drafts keep role mentions, versions and their published sta
 }));
 test('nonmembers cannot apply and readers cannot access restricted statistics or journals',async()=>fixture(async({guild,request})=>{
  const fetch=guild.members.fetch;guild.members.fetch=async args=>{if(args.user===ids.candidate){const err=new Error('Unknown member');err.code=10007;throw err;}return fetch(args);};
- assert.equal((await request('/api/applications',{type:'helper',scenario:'Je reste calme et j’écoute les personnes concernées avant de proposer une solution.',weeklyHours:8,motivation:'Une motivation suffisamment longue pour rejoindre le staff.',experience:'Support',availability:'Soirs',rulesAccepted:true},ids.candidate)).status,403);
+ assert.equal((await request('/api/applications',{...applicationProfile,type:'helper',scenario:'Je reste calme et j’écoute les personnes concernées avant de proposer une solution.',weeklyHours:8,motivation:'Une motivation suffisamment longue pour rejoindre le staff.',experience:'Support',availability:'Soirs',rulesAccepted:true},ids.candidate)).status,403);
  for(const path of ['/api/admin/audit','/api/admin/statistics','/api/admin/applications'])assert.equal((await request(path,undefined,ids.author)).status,403);
 }));
-const recruitmentBody={type:'helper',scenario:'Je reste calme, je reformule la demande et je cherche les faits sans prendre parti.',weeklyHours:8,motivation:'Je souhaite accompagner les joueurs et contribuer au bon fonctionnement du serveur.',experience:'Gestion de tickets et animation de communauté',availability:'Les soirs et le week-end',rulesAccepted:true};
+const recruitmentBody={...applicationProfile,type:'helper',scenario:'Je reste calme, je reformule la demande et je cherche les faits sans prendre parti.',weeklyHours:8,motivation:'Je souhaite accompagner les joueurs et contribuer au bon fonctionnement du serveur.',experience:'Gestion de tickets et animation de communauté',availability:'Les soirs et le week-end',rulesAccepted:true};
 test('recruitment types open independently, announce links and ping only the configured role',async()=>fixture(async({state,request,calls})=>{
  state.recruitmentSettings={types:{helper:false,animator:false},revision:0};
  assert.equal((await request('/api/admin/recruitment',{types:{helper:true,animator:false},revision:0},ids.author)).status,403);
@@ -207,4 +208,13 @@ test('retrying failed final DMs never republishes the public announcement',async
 test('legacy pending final notifications cannot bypass the Publish action',async()=>fixture(async({state,request,directMessages})=>{
  state.applications=[{id:'legacy',userId:ids.candidate,status:'accepted',publicDecisionVersion:1,notifications:[{id:'old',kind:'accepted',status:'pending',content:'Do not send yet'}]}];
  assert.equal((await request('/api/admin/applications/legacy/notify',{})).status,409);assert.equal(directMessages.length,0);
+}));
+test('new application profile and writing conditions are required, validated and kept private',async()=>fixture(async({state,request})=>{
+ for(const change of [{age:0},{age:'19'},{fivemHours:-1},{conditionsAccepted:false},{teamwork:'Court'}])assert.equal((await request('/api/applications',{...recruitmentBody,...change},ids.candidate)).status,400);
+ const missing={...recruitmentBody};delete missing.conditionsAccepted;assert.equal((await request('/api/applications',missing,ids.candidate)).status,400);
+ assert.equal((await request('/api/applications',{...recruitmentBody,fivemHours:0},ids.candidate)).status,201);
+ const entry=state.applications[0];assert.equal(entry.age,19);assert.equal(entry.fivemHours,0);assert.equal(entry.conditionsVersion,'staff-application-v2');assert.ok(entry.conditionsAcceptedAt);assert.equal(entry.teamwork,applicationProfile.teamwork);
+ const mine=(await request('/api/applications/mine',undefined,ids.candidate)).body[0];assert.ok(!Object.hasOwn(mine,'age'));assert.ok(!Object.hasOwn(mine,'fivemHours'));
+ const staff=(await request('/api/admin/applications')).body[0];assert.equal(staff.age,19);assert.equal(staff.gameExperience,applicationProfile.gameExperience);
+ assert.ok(!JSON.stringify((await request('/api/community')).body).includes(applicationProfile.teamwork));
 }));

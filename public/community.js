@@ -16,7 +16,7 @@ function renderRecruitmentAvailability(content){
   latestRecruitment=content.recruitment;
   $('#applicationType').dataset.previousType=$('#applicationType').value;
   const openings=content.recruitment.types||{helper:content.recruitment.open,animator:content.recruitment.open};
-  $('#recruitmentChoices').innerHTML=Object.entries(recruitmentTypes).map(([key,type])=>`<article class="recruitment-choice ${openings[key]?'open':'closed'}"><span class="application-status">${openings[key]?'OUVERT':'FERMÉ'}</span><h3>${esc(type.label)}</h3><p>${esc(type.description)}</p>${openings[key]?`<button type="button" class="btn btn-outline" data-choose-type="${key}">Choisir ${esc(type.label)}</button>`:''}</article>`).join('');
+
   $('#applicationType').innerHTML='<option value="">Choisir un poste ouvert</option>'+Object.entries(recruitmentTypes).filter(([key])=>openings[key]).map(([key,type])=>`<option value="${key}">${esc(type.label)}</option>`).join('');
   const previousType=$('#applicationType').dataset.previousType||'';
   const requested=new URLSearchParams(location.search).get('type');
@@ -25,7 +25,7 @@ function renderRecruitmentAvailability(content){
   else if(firstAvailabilityRender&&!requested)$('#applicationType').value=Object.keys(openings).find(key=>openings[key])||'';
   else if(firstAvailabilityRender&&requested)notice('Le poste demandé était fermé à l’ouverture de cette page. Consulte les disponibilités affichées ci-dessus.');
   updateRecruitType();
-  document.querySelectorAll('[data-choose-type]').forEach(button=>button.onclick=()=>{$('#applicationType').value=button.dataset.chooseType;updateRecruitType();$('#applicationForm').hidden?$('#applicationLogin').focus():$('#applicationType').focus();});
+
   $('#applicationForm').hidden=!candidateSession||!content.recruitment.open;
   $('#applicationLogin').hidden=candidateSession||!content.recruitment.open;
   firstAvailabilityRender=false;
@@ -56,5 +56,5 @@ async function boot(){
   if(me.user){candidateSession=true;$('#applicationLogin').hidden=true;$('#applicationForm').hidden=!latestRecruitment.open;await myApplications();}
  }
 }
-$('#applicationForm').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const result=await api('/api/applications',{method:'POST',body:JSON.stringify({type:$('#applicationType').value,scenario:$('#applicationScenario').value,weeklyHours:Number($('#applicationWeeklyHours').value),motivation:$('#applicationMotivation').value,experience:$('#applicationExperience').value,availability:$('#applicationAvailability').value,rulesAccepted:$('#applicationRules').checked})});event.target.reset();notice(result.dmSent?'Ta candidature a bien été reçue. Une confirmation t’a été envoyée en MP Discord.':'Ta candidature a bien été reçue, mais le MP n’a pas pu être envoyé. Active les messages privés du serveur et consulte ton suivi ci-dessous.');updateRecruitType();await myApplications();}catch(e){notice(e.message);}finally{button.disabled=false;}};
+$('#applicationForm').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const result=await api('/api/applications',{method:'POST',body:JSON.stringify({type:$('#applicationType').value,age:Number($('#applicationAge').value),fivemHours:Number($('#applicationFivemHours').value),gameExperience:$('#applicationGameExperience').value,qualities:$('#applicationQualities').value,teamwork:$('#applicationTeamwork').value,history:$('#applicationHistory').value,conditionsAccepted:$('#applicationConditions').checked,scenario:$('#applicationScenario').value,weeklyHours:Number($('#applicationWeeklyHours').value),motivation:$('#applicationMotivation').value,experience:$('#applicationExperience').value,availability:$('#applicationAvailability').value,rulesAccepted:$('#applicationRules').checked})});event.target.reset();notice(result.dmSent?'Ta candidature a bien été reçue. Une confirmation t’a été envoyée en MP Discord.':'Ta candidature a bien été reçue, mais le MP n’a pas pu être envoyé. Active les messages privés du serveur et consulte ton suivi ci-dessous.');updateRecruitType();await myApplications();}catch(e){notice(e.message);}finally{button.disabled=false;}};
 boot().catch(e=>notice(e.message));
