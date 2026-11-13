@@ -218,3 +218,11 @@ Le bot doit avoir **Gérer les salons** dans ces deux salons vocaux et **Server 
 ### Remplacement de l’ancien règlement détaillé
 
 Au redémarrage ou via `/accueil`, le bot transforme son premier message enregistré en invitation à lire le site, puis supprime uniquement ses anciens messages de règlement dont les identifiants étaient conservés dans `data/state.json`. Il ne parcourt pas le salon pour supprimer les messages d’autres personnes. Les anciens boutons ne sont plus reconnus. Si un retrait échoue, les identifiants restants sont conservés pour une nouvelle tentative, tandis que seul le bouton du message compact reste valide. Les rôles d’attente et de membre fonctionnent comme auparavant.
+
+## Visibilité des recrutements
+
+Un encart placé en haut de l’accueil et sur la page Candidatures indique explicitement l’état de chaque poste : badge vert **OUVERT**, badge rouge **FERMÉ**, nombre de postes ouverts et bouton Candidater uniquement lorsque le poste est disponible. Quand tout est fermé, le suivi des candidatures reste accessible.
+
+Les états sont lus dans les réglages réels du panel et actualisés toutes les 30 secondes ainsi qu’au retour sur l’onglet. Sur la page Candidatures, une fermeture retire le poste du sélecteur et masque le formulaire si tous les postes ferment ; les réponses déjà saisies ne sont pas effacées. Si le statut ne peut pas être récupéré, l’encart affiche « Statut temporairement indisponible » et ne présente pas une fermeture comme certaine.
+
+Pour déployer cet affichage, transférer le dossier `public/` complet, notamment `recruitment-spotlight.js` et `recruitment-spotlight.css`, puis recharger le site avec Ctrl+F5. Aucun changement des permissions, des campagnes Discord ou de la publication manuelle des résultats n’est nécessaire.

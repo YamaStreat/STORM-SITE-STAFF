@@ -32,7 +32,7 @@ test('complete application starts offline and serves public API, assets and fixe
   await new Promise(resolve=>server.once('listening',resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
-    for(const asset of ['/','/admin.html','/app.js','/admin.js','/styles.css','/staff','/staff.html','/staff.js','/staff.css','/branding.json','/admin-theme.css','/admin-branding.js','/developpement','/reglement','/serveur','/faq','/candidatures','/community.js','/community.css','/community-admin.js','/community-admin.css']) assert.equal((await fetch(base+asset)).status,200,asset);
+    for(const asset of ['/','/admin.html','/app.js','/admin.js','/styles.css','/staff','/staff.html','/staff.js','/staff.css','/branding.json','/admin-theme.css','/admin-branding.js','/developpement','/reglement','/serveur','/faq','/candidatures','/community.js','/community.css','/community-admin.js','/community-admin.css','/recruitment-spotlight.js','/recruitment-spotlight.css']) assert.equal((await fetch(base+asset)).status,200,asset);
     const data = await (await fetch(base+'/api/public')).json();
     assert.equal(data.server.mode,'development'); assert.deepEqual(data.patchNotes,[]);
     assert.equal((await (await fetch(base+'/api/me')).json()).user,null);
