@@ -218,3 +218,13 @@ test('new application profile and writing conditions are required, validated and
  const staff=(await request('/api/admin/applications')).body[0];assert.equal(staff.age,19);assert.equal(staff.gameExperience,applicationProfile.gameExperience);
  assert.ok(!JSON.stringify((await request('/api/community')).body).includes(applicationProfile.teamwork));
 }));
+test('AI consent belongs to the applicant and AI reports remain staff-only',async()=>fixture(async({state,request})=>{
+ await request('/api/applications',recruitmentBody,ids.candidate);const entry=state.applications[0];assert.equal(entry.aiReview.status,'declined');
+ assert.equal((await request('/api/admin/applications/'+entry.id+'/analyze',{revision:1})).status,403);
+ assert.equal((await request('/api/applications/'+entry.id+'/ai-consent',{consent:true},ids.other)).status,404);
+ assert.equal((await request('/api/applications/'+entry.id+'/ai-consent',{consent:true},ids.candidate)).status,200);assert.equal(entry.aiReviewConsent,true);assert.equal(entry.aiReview.status,'not_configured');
+ assert.equal((await request('/api/admin/applications/'+entry.id+'/analyze',{revision:1})).status,503);
+ entry.aiReview={status:'completed',report:{summary:'Private AI report'}};
+ const mine=(await request('/api/applications/mine',undefined,ids.candidate)).body[0];assert.equal(mine.aiReviewConsent,true);assert.ok(!Object.hasOwn(mine,'aiReview'));assert.ok(!JSON.stringify((await request('/api/community')).body).includes('Private AI report'));
+ assert.equal((await request('/api/admin/applications/ai-status')).body.configured,false);
+}));

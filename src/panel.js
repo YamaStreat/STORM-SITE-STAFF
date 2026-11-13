@@ -7,7 +7,7 @@ const NOTIFY_ROLES = Object.freeze({ patchNotes: '1568307263695749201', giveaway
 const PERMISSIONS = Object.freeze({
   tickets: 'Gérer les tickets et contestations', announcements: 'Publier des annonces', giveaways: 'Gérer les giveaways', streams: 'Publier des streams',
   patchNotes: 'Publier des patch notes', settings: 'Gérer le statut du serveur', access: 'Configurer les accès staff',
-  recruitment: 'Ouvrir, fermer et annoncer les recrutements', content: 'Gérer les pages publiques', applications: 'Étudier les candidatures staff', members: 'Voir les fiches membres, sanctions et tickets', audit: 'Consulter le journal des actions', statistics: 'Consulter les statistiques de support', drafts: 'Rédiger des brouillons', approvePublications: 'Valider les publications',
+  applicationAI: 'Demander une préanalyse IA de candidature', recruitment: 'Ouvrir, fermer et annoncer les recrutements', content: 'Gérer les pages publiques', applications: 'Étudier les candidatures staff', members: 'Voir les fiches membres, sanctions et tickets', audit: 'Consulter le journal des actions', statistics: 'Consulter les statistiques de support', drafts: 'Rédiger des brouillons', approvePublications: 'Valider les publications',
   ban: 'Bannir', unban: 'Débannir', kick: 'Expulser', timeout: 'Mute temporaire / retirer le mute', warn: 'Avertir'
 });
 const SNOWFLAKE = /^\d{17,20}$/;

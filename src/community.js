@@ -1,5 +1,6 @@
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { createApplicationAI } = require('./application-ai');
 const { RULES, LEGACY_RULES, RULES_VERSION } = require('./rules');
 const { TYPES, settingsFor, createRecruitmentService } = require('./recruitment');
 const ID = /^\d{17,20}$/;
@@ -52,6 +53,8 @@ function validateContent(input){
   };
 }
 function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireStaff,route}){
+  const applicationAI=createApplicationAI({state,saveState});
+  applicationAI.resume();
   const recruitment = createRecruitmentService({state,saveState,client,guildId,publicUrl});
   const content=()=>{
     const base=structuredClone(state.communityContent||DEFAULT_CONTENT);
@@ -71,7 +74,7 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
     res.json((state.applications||[]).filter(row=>row.userId===applicant.id).map(row=>{
       const unpublished=['accepted','rejected'].includes(row.status)&&row.publicDecisionVersion>(row.publicResultPublishedVersion||0);
       const visible=unpublished?(row.publishedOutcome||row.preparedFrom||{status:'reviewing',feedback:''}):row;
-      return{id:row.id,type:row.type,status:visible.status,feedback:visible.feedback,createdAt:row.createdAt,updatedAt:row.updatedAt,revision:row.revision,notificationStatus:row.notifications?.findLast(event=>!['accepted','rejected'].includes(event.kind)||event.status==='sent')?.status||null};
+      return{id:row.id,type:row.type,status:visible.status,feedback:visible.feedback,createdAt:row.createdAt,updatedAt:row.updatedAt,revision:row.revision,aiReviewConsent:row.aiReviewConsent===true,notificationStatus:row.notifications?.findLast(event=>!['accepted','rejected'].includes(event.kind)||event.status==='sent')?.status||null};
     }));
   }));
   app.post('/api/applications',route(async(req,res)=>{
@@ -95,8 +98,9 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
     state.applications||=[];
     if(state.applications.some(row=>row.userId===applicant.id&&['pending','reviewing'].includes(row.status)))error(409,'Tu as déjà une candidature en cours d’étude.');
     if(state.applications.length>=2000)error(503,'Le formulaire est temporairement indisponible. Contacte l’équipe.');
-    const entry={id:randomUUID(),userId:applicant.id,username:applicant.username,type,scenario,weeklyHours,age,fivemHours,gameExperience,qualities,teamwork,history,conditionsVersion:'staff-application-v2',conditionsAcceptedAt:Date.now(),rulesVersion:RULES_VERSION,motivation,availability,experience,status:'pending',feedback:'',createdAt:Date.now(),updatedAt:Date.now(),revision:1};
+    const entry={id:randomUUID(),userId:applicant.id,username:applicant.username,type,scenario,weeklyHours,aiReviewConsent:req.body.aiReviewConsent===true,aiReviewConsentAt:req.body.aiReviewConsent===true?Date.now():null,age,fivemHours,gameExperience,qualities,teamwork,history,conditionsVersion:'staff-application-v2',conditionsAcceptedAt:Date.now(),rulesVersion:RULES_VERSION,motivation,availability,experience,status:'pending',feedback:'',createdAt:Date.now(),updatedAt:Date.now(),revision:1};
     state.applications.unshift(entry);saveState();
+    applicationAI.schedule(entry);
     const notification=recruitment.queueDM(entry,'received');
     const dmSent=await recruitment.deliver(entry,notification);
     res.status(201).json({ok:true,id:entry.id,dmSent});
@@ -144,6 +148,18 @@ function installCommunity(app,{state,saveState,client,guildId,publicUrl,requireS
     const event=entry.notifications?.at(-1);if(!event)error(409,'Aucune notification disponible.');
     if(['accepted','rejected'].includes(event.kind)&&(!event.decisionVersion||(entry.publicResultPublishedVersion||0)<event.decisionVersion))error(409,'Publie les résultats en attente avant de notifier une décision finale.');
     const dmSent=await recruitment.deliver(entry,event);res.json({ok:true,dmSent});
+  }));
+  app.get('/api/admin/applications/ai-status',requireStaff,route(async(req,res)=>res.json(applicationAI.status())));
+  app.post('/api/admin/applications/:id/analyze',requireStaff,route(async(req,res)=>{
+    if(!has(req,'applicationAI'))error(403,'Permission d’analyse IA requise.');
+    const entry=(state.applications||[]).find(row=>row.id===req.params.id);if(!entry)error(404,'Candidature introuvable.');checkRevision(entry,req);
+    const review=applicationAI.request(entry,req.session.user.id,{force:req.body.force===true});res.status(review.status==='completed'?200:202).json({ok:true,review});
+  }));
+  app.post('/api/applications/:id/ai-consent',route(async(req,res)=>{
+    origin(req);const applicant=user(req);const entry=(state.applications||[]).find(row=>row.id===req.params.id&&row.userId===applicant.id);if(!entry)error(404,'Candidature introuvable.');
+    if(!['pending','reviewing'].includes(entry.status))error(409,'Ce dossier n’est plus à traiter.');
+    if(req.body.consent!==true)error(400,'Une autorisation explicite est requise.');
+    entry.aiReviewConsent=true;entry.aiReviewConsentAt=Date.now();saveState();applicationAI.schedule(entry);res.json({ok:true});
   }));
   app.get('/api/admin/applications',requireStaff,route(async(req,res)=>res.json(state.applications||[])));
   app.post('/api/admin/applications/:id',requireStaff,route(async(req,res)=>{

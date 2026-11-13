@@ -236,3 +236,34 @@ Le formulaire demande désormais l’âge en années (pas la date de naissance),
 Les conditions interdisent les réponses produites par une IA, le copier-coller et les informations mensongères, et rappellent la neutralité et la confidentialité attendues du staff. Une case obligatoire fait confirmer leur acceptation ; le serveur enregistre la version des conditions et l’horodatage de l’engagement. Cette attestation ne constitue pas un détecteur automatique d’IA : l’équipe examine les réponses et peut demander des précisions. Aucun âge minimum de recrutement n’a été décidé automatiquement ; le champ vérifie seulement un âge numérique cohérent.
 
 Cette modification touche `src/` et `public/` : mettre à jour les deux dossiers complets sur Gamost, conserver `.env`, `data/` et les logos locaux, redémarrer puis recharger avec Ctrl+F5 pour obtenir les nouvelles questions et leur validation.
+
+## Préanalyse IA des candidatures
+
+Le panel peut demander à OpenAI une aide à la relecture : résumé, complétude, points concrets, éléments à vérifier et questions à poser au candidat. Le rapport reste privé dans le dossier staff. Il ne donne ni note ni décision, ne détecte pas de façon fiable l’origine IA d’un texte et ne déclenche aucune acceptation, aucun refus, aucun rôle ni message Discord. Les résultats continuent d’être préparés et publiés manuellement par le staff.
+
+### Activation sur Gamost
+
+Créer une clé API dans son propre compte OpenAI, puis la renseigner uniquement dans le `.env` du serveur (ne jamais la publier sur GitHub ou l’envoyer dans le chat) :
+
+```dotenv
+STORM_AI_API_KEY=...
+STORM_AI_MODEL=gpt-4.1-mini
+STORM_AI_AUTO_REVIEW=true
+STORM_AI_DAILY_LIMIT=50
+```
+
+Remplacer `...` par la véritable clé, puis redémarrer. `OPENAI_API_KEY` est aussi reconnu si `STORM_AI_API_KEY` n’est pas défini. Aucun paquet supplémentaire n’est nécessaire. Les appels utilisent l’API OpenAI et les quotas/crédits de ce compte ; le serveur doit pouvoir accéder à `https://api.openai.com`. Le modèle doit prendre en charge Chat Completions et les sorties structurées JSON Schema. Le compte du propriétaire conserve tous les droits ; pour les autres rôles, attribuer **Demander une préanalyse IA de candidature**, en plus du droit d’étudier les candidatures.
+
+Sans clé, le panel indique que le service n’est pas configuré et les candidatures fonctionnent normalement. L’intégration a été testée avec un service simulé ; aucun appel OpenAI réel n’a pu être vérifié dans cet environnement, qui ne possède pas de clé API.
+
+### Autorisation du candidat et données transmises
+
+La case d’autorisation est facultative et distincte de l’interdiction d’utiliser une IA pour rédiger la candidature. Sans autorisation, le dossier reste traité manuellement. Les anciens candidats peuvent autoriser la préanalyse depuis leur suivi privé, tant que leur dossier est à traiter.
+
+Seuls le poste, les heures de jeu/disponibilité et les champs rédactionnels utiles (motivation, expérience, disponibilité, mise en situation, parcours FiveM, qualités, gestion d’un désaccord) sont joints à la requête. Le pseudo, l’identifiant Discord, l’âge, les sanctions déclarées et les messages privés du staff ne sont pas joints comme champs. Les liens, emails et identifiants Discord reconnaissables sont retirés des textes ; cette suppression n’est pas une anonymisation parfaite, et le formulaire demande de ne pas inclure d’informations sensibles. Les réponses API utilisent `store: false` ; le service externe conserve ses propres conditions de traitement.
+
+### Fonctionnement et limites
+
+Une nouvelle candidature autorisée est analysée en arrière-plan lorsque la clé est configurée et le mode automatique actif. `STORM_AI_AUTO_REVIEW=false` conserve uniquement les demandes manuelles. Les rapports déjà calculés sont réutilisés pour les mêmes réponses ; le bouton Relancer effectue un nouvel appel après confirmation. Les requêtes sont séquencées, limitées par défaut à 50 tentatives par jour de Paris (maximum configurable : 1 000), et interrompues après 45 secondes. Les échecs comptent aussi dans cette limite. Les travaux en attente interrompus par un redémarrage reprennent si le service reste configuré et la candidature est toujours active.
+
+Le rapport est validé avant affichage, affiché comme texte échappé et accompagné d’un rappel sur ses limites. Les réponses de candidature sont traitées comme des données non fiables : le modèle n’a accès à aucun outil du bot ni à ses décisions. Les erreurs d’authentification, de quota, de réseau ou de format restent dans le panneau IA et n’empêchent pas la candidature d’être enregistrée. Le suivi d’analyse met à jour seulement le bloc IA, sans effacer le retour que le staff serait en train de rédiger.
